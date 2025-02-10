@@ -1,3 +1,6 @@
+## Environment Outline
+![Proof of Concept Output](poc/output.png)
+
 ## LaTex Guide
 To work with LaTex locally on your IDE, follow the steps below: 
 1. Install [MikTex](https://miktex.org/) as the LaTeX Distribution.
