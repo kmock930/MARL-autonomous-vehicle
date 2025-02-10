@@ -1,5 +1,5 @@
 ## Environment Outline
-![Proof of Concept Output](poc/output.png)
+<img src="poc/output.png" alt="Proof of Concept Output" width="400" height="400"/>
 
 ## LaTex Guide
 To work with LaTex locally on your IDE, follow the steps below: 
