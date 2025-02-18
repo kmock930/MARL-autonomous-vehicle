@@ -14,3 +14,15 @@ pygame==2.1.2
 
 # For config handling (if you use YAML files)
 pyyaml==6.0
+
+# For RL
+ray[rllib]==2.1.0
+
+# For training in BenchMARL
+benchmarl
+
+# For training in TorchRL
+torchrl
+
+# VMAS environment
+vmas[all]
