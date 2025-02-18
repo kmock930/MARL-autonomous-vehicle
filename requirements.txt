@@ -1,0 +1,16 @@
+# Core libraries
+numpy==1.21.2
+gym==0.21.0
+torch==1.13.1
+
+# For geometry and collision checks (often needed in 2D environments)
+shapely==1.8.5
+
+# For plots/visualizations
+matplotlib==3.5.3
+
+# For optional rendering
+pygame==2.1.2
+
+# For config handling (if you use YAML files)
+pyyaml==6.0
