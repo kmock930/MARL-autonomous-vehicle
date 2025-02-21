@@ -17,3 +17,4 @@ To work with LaTex locally on your IDE, follow the steps below:
     python -m venv marl_env
     source marl_env/bin/activate  # (On Windowks: marl_env\Scripts\activate)
 `.
+* Atari is available via Gymnasium: <url>https://www.gymlibrary.dev/environments/atari/index.html</url>
