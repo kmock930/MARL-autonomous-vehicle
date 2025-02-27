@@ -71,13 +71,14 @@ if __name__ == "__main__":
     size = 10  # Size of the map
     num_obstacles = 15  # Number of obstacles
     num_robots = 2  # Number of robots
+    tetherDist = 2  # Tether distance
 
     grid, robots, target = generate_map(
-        rowSize=10, 
-        colSize=10, 
+        rowSize=size, 
+        colSize=size, 
         num_obstacles=num_obstacles, 
         num_robots=num_robots,
-        tetherDist=2
+        tetherDist=tetherDist
     )
     print("Generated Map:")
     print_map(grid)
