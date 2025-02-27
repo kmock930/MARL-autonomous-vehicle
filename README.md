@@ -1,5 +1,5 @@
 ## Environment Outline
-<img src="poc/output.png" alt="Proof of Concept Output" width="400" height="400"/>
+<img src="poc/output_tethered_markers.png" alt="Proof of Concept Output" width="400" height="400"/>
 
 ## LaTex Guide
 To work with LaTex locally on your IDE, follow the steps below: 
