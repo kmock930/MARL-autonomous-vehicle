@@ -1,3 +1,6 @@
+# Implementation is based on gym-simplegrid:
+# https://github.com/damat-le/gym-simplegrid
+
 from __future__ import annotations
 import logging
 import numpy as np
@@ -5,20 +8,15 @@ from gymnasium import spaces, Env
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import sys
+sys.path.append('..')
+from generate_map import generate_map
+from ACTION_SPACE import ACTION_SPACE
 
-MAPS = {
-    "4x4": ["0000", "0101", "0001", "1000"],
-    "8x8": [
-        "00000000",
-        "00000000",
-        "00010000",
-        "00000100",
-        "00010000",
-        "01100010",
-        "01001010",
-        "00010000",
-    ],
-}
+MAPS = generate_map(
+    size=10, 
+    num_obstacles=15, 
+    num_robots=2
+)
 
 class SimpleGridEnv(Env):
     """
@@ -41,20 +39,7 @@ class SimpleGridEnv(Env):
     OBSTACLE: int = 1
     AGENT: int = 2
     TARGET: int = 3
-    MOVES: dict[int,tuple] = {
-        # straight
-        0: (-1, 0), #UP
-        1: (1, 0),  #DOWN
-        2: (0, -1), #LEFT
-        3: (0, 1),   #RIGHT
-        # diagonals
-        4: (-1, -1), #UP-LEFT
-        5: (-1, 1), #UP-RIGHT
-        6: (1, -1), #DOWN-LEFT
-        7: (1, 1), #DOWN-RIGHT
-        # stay
-        8: (0, 0) #STAY
-    }
+    MOVES: dict = ACTION_SPACE
 
     def __init__(self,     
         obstacle_map: str | list[str],
