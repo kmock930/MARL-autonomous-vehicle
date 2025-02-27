@@ -73,6 +73,18 @@ class TestGenerateMap(unittest.TestCase):
             tetherDist=self.tetherDist
         )
         self.assertEqual(len(robots), 0)
+    
+    def test_generate_map_more_leaders(self):
+        grid, robots, target = generate_map(
+            rowSize=self.size,
+            colSize=self.size, 
+            num_obstacles=self.num_obstacles, 
+            num_robots=5,
+            tetherDist=self.tetherDist,
+            num_leaders=3
+        )
+        self.assertEqual(len([robot for robot in robots if robot['role'] == 'leader']), 3)
+        self.assertEqual(len([robot for robot in robots if robot['role'] == 'follower']), 2)
 
 if __name__ == '__main__':
     unittest.main()
