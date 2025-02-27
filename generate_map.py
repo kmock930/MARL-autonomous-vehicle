@@ -3,7 +3,7 @@ import numpy as np
 import joblib
 import os
 
-def generate_map(rowSize: int, colSize: int, num_obstacles: int, num_robots: int, tetherDist: int):
+def generate_map(rowSize: int, colSize: int, num_obstacles: int, num_robots: int, tetherDist: int, num_leaders: int = 1):
     # Initialize the map with free cells
     grid = np.zeros((rowSize, colSize), dtype=int)
 
@@ -26,7 +26,7 @@ def generate_map(rowSize: int, colSize: int, num_obstacles: int, num_robots: int
                     grid[x, y] = 2
                     robots.append({
                         'position': (x, y), 
-                        'role': roles[i % len(roles)]
+                        'role': roles[0 if i<num_leaders else 1]
                     })
                     break
 
