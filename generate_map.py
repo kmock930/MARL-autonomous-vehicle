@@ -48,7 +48,6 @@ def generate_sample_data(number: int):
     os.makedirs("sample_data", exist_ok=True)
     
     for currSampleId in range(number):
-        currSampleId += 1
         size = random.randint(5, 10)
         num_obstacles = random.randint(5, 10)
         num_robots = random.randint(1, 3)
@@ -60,9 +59,9 @@ def generate_sample_data(number: int):
             tetherDist=2
         )
         try:
-            np.save(f"sample_data/sample_grid_{currSampleId}.npy", grid)
-            joblib.dump(robots, f"sample_data/sample_robots_{currSampleId}.pkl")
-            joblib.dump(target, f"sample_data/sample_target_{currSampleId}.pkl")
+            np.save(f"sample_data/sample_grid_{currSampleId+1}.npy", grid)
+            joblib.dump(robots, f"sample_data/sample_robots_{currSampleId+1}.pkl")
+            joblib.dump(target, f"sample_data/sample_target_{currSampleId+1}.pkl")
         except:
             print("Error in saving sample data")
             return False
