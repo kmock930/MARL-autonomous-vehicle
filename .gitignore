@@ -4,3 +4,5 @@
 **/vcpkg/
 **/marl_env/
 **/wheel-*-py3-none-any.whl
+**/*.docx
+**/__pycache__/
