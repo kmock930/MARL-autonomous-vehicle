@@ -18,3 +18,4 @@ To work with LaTex locally on your IDE, follow the steps below:
     source marl_env/bin/activate  # (On Windowks: marl_env\Scripts\activate)
 `.
 * Atari is available via Gymnasium: <url>https://www.gymlibrary.dev/environments/atari/index.html</url>
+* Clone the repository <url>https://github.com/damat-le/gym-simplegrid.git</url> to get the codes of a simple grid-based environment for customization. 
