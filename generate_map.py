@@ -2,17 +2,32 @@ import random
 import numpy as np
 import joblib
 import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-def generate_map(rowSize: int, colSize: int, num_obstacles: int, num_robots: int, tetherDist: int, num_leaders: int = 1):
+def generate_map(rowSize: int, colSize: int, num_soft_obstacles: int, num_hard_obstacles: int, num_robots: int, tetherDist: int, num_leaders: int = 1, num_target: int = 1):
     # Initialize the map with free cells
     grid = np.zeros((rowSize, colSize), dtype=int)
 
-    # Place obstacles randomly
-    for _ in range(num_obstacles):
+    total_cells = rowSize * colSize
+    total_obstacles = num_soft_obstacles + num_hard_obstacles
+    if (total_obstacles + num_robots + num_target) > total_cells:
+        raise ValueError("Total number of obstacles, robots, and target exceeds the grid size.")
+
+    # Place soft obstacles randomly
+    for _ in range(num_soft_obstacles):
         while True:
             x, y = random.randint(0, rowSize-1), random.randint(0, colSize-1)
             if grid[x, y] == 0:
                 grid[x, y] = 1
+                break
+
+    # Place hard obstacles randomly
+    for _ in range(num_hard_obstacles):
+        while True:
+            x, y = random.randint(0, rowSize-1), random.randint(0, colSize-1)
+            if grid[x, y] == 0:
+                grid[x, y] = 2
                 break
 
     # Place robots randomly with roles
@@ -23,7 +38,7 @@ def generate_map(rowSize: int, colSize: int, num_obstacles: int, num_robots: int
             x, y = random.randint(0, rowSize-1), random.randint(0, colSize-1)
             if grid[x, y] == 0:
                 if i == 0 or all(max(abs(x - robot['position'][0]), abs(y - robot['position'][1])) <= tetherDist for robot in robots):
-                    grid[x, y] = 2
+                    grid[x, y] = 3
                     robots.append({
                         'position': (x, y), 
                         'role': roles[0 if i<num_leaders else 1]
@@ -31,12 +46,13 @@ def generate_map(rowSize: int, colSize: int, num_obstacles: int, num_robots: int
                     break
 
     # Place the target randomly
-    while True:
-        x, y = random.randint(0, rowSize-1), random.randint(0, colSize-1)
-        if grid[x, y] == 0:
-            grid[x, y] = 3
-            target = (x, y)
-            break
+    for i in range(num_target):
+        while True:
+            x, y = random.randint(0, rowSize-1), random.randint(0, colSize-1)
+            if grid[x, y] == 0:
+                grid[x, y] = 4
+                target = (x, y)
+                break
 
     return grid, robots, target
 
@@ -49,12 +65,14 @@ def generate_sample_data(number: int):
     
     for currSampleId in range(number):
         size = random.randint(5, 10)
-        num_obstacles = random.randint(5, 10)
+        num_soft_obstacles = random.randint(5, 10)
+        num_hard_obstacles = random.randint(1, 5)
         num_robots = random.randint(1, 3)
         grid, robots, target = generate_map(
             rowSize=size, 
             colSize=size, 
-            num_obstacles=num_obstacles, 
+            num_soft_obstacles=num_soft_obstacles, 
+            num_hard_obstacles=num_hard_obstacles, 
             num_robots=num_robots,
             tetherDist=2
         )
@@ -69,14 +87,16 @@ def generate_sample_data(number: int):
 
 if __name__ == "__main__":
     size = 10  # Size of the map
-    num_obstacles = 15  # Number of obstacles
+    num_soft_obstacles = 10  # Number of soft obstacles
+    num_hard_obstacles = 5  # Number of hard obstacles
     num_robots = 2  # Number of robots
     tetherDist = 2  # Tether distance
 
     grid, robots, target = generate_map(
         rowSize=size, 
         colSize=size, 
-        num_obstacles=num_obstacles, 
+        num_soft_obstacles=num_soft_obstacles, 
+        num_hard_obstacles=num_hard_obstacles, 
         num_robots=num_robots,
         tetherDist=tetherDist
     )
