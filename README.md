@@ -1,7 +1,9 @@
+## Our Deliverables
+* [Project Proposal](./proposal%20doc/MARL_Autonomous_Vehicle_Proposal.pdf)
+* [Presenting Our Proposal](./MARL_autonomous_vehicle_proposal_presentation.pdf)
+* [A Research Summary](./MARL-Lane_Changing-Presentation.pdf)
+
 ## Environment Outline
-[Project Proposal](./proposal%20doc/MARL_Autonomous_Vehicle_Proposal.pdf)
-[Presenting Our Proposal](./MARL_autonomous_vehicle_proposal_presentation.pdf)
-[A Research Summary](./MARL-Lane_Changing-Presentation.pdf)
 <img src="poc/output_tethered_markers.png" alt="Proof of Concept Output" width="400" height="400"/>
 
 ## LaTex Guide for Writing Reports
