@@ -5,6 +5,13 @@ import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+# Define environment constants
+FREE: int = 0
+OBSTACLE_SOFT: int = 1
+OBSTACLE_HARD: int = 2
+AGENT: int = 3
+TARGET: int = 4
+
 def generate_map(rowSize: int, colSize: int, num_soft_obstacles: int, num_hard_obstacles: int, num_robots: int, tetherDist: int, num_leaders: int = 1, num_target: int = 1):
     # Initialize the map with free cells
     grid = np.zeros((rowSize, colSize), dtype=int)
@@ -18,16 +25,16 @@ def generate_map(rowSize: int, colSize: int, num_soft_obstacles: int, num_hard_o
     for _ in range(num_soft_obstacles):
         while True:
             x, y = random.randint(0, rowSize-1), random.randint(0, colSize-1)
-            if grid[x, y] == 0:
-                grid[x, y] = 1
+            if grid[x, y] == FREE:
+                grid[x, y] = OBSTACLE_SOFT
                 break
 
     # Place hard obstacles randomly
     for _ in range(num_hard_obstacles):
         while True:
             x, y = random.randint(0, rowSize-1), random.randint(0, colSize-1)
-            if grid[x, y] == 0:
-                grid[x, y] = 2
+            if grid[x, y] == FREE:
+                grid[x, y] = OBSTACLE_HARD
                 break
 
     # Place robots randomly with roles
@@ -36,25 +43,26 @@ def generate_map(rowSize: int, colSize: int, num_soft_obstacles: int, num_hard_o
     for i in range(num_robots):
         while True:
             x, y = random.randint(0, rowSize-1), random.randint(0, colSize-1)
-            if grid[x, y] == 0:
+            if grid[x, y] == FREE:
                 if i == 0 or all(max(abs(x - robot['position'][0]), abs(y - robot['position'][1])) <= tetherDist for robot in robots):
-                    grid[x, y] = 3
+                    grid[x, y] = AGENT
                     robots.append({
                         'position': (x, y), 
                         'role': roles[0 if i<num_leaders else 1]
                     })
                     break
 
-    # Place the target randomly
+    # Place the targets randomly
+    targets = []
     for i in range(num_target):
         while True:
             x, y = random.randint(0, rowSize-1), random.randint(0, colSize-1)
-            if grid[x, y] == 0:
-                grid[x, y] = 4
-                target = (x, y)
+            if grid[x, y] == FREE:
+                grid[x, y] = TARGET
+                targets.append((x, y))
                 break
 
-    return grid, robots, target
+    return grid, robots, targets
 
 def print_map(grid):
     for row in grid:
@@ -105,4 +113,4 @@ if __name__ == "__main__":
     print("\nRobots:", robots)
     print("Target:", target)
 
-    generate_sample_data(10) # Generate 10 sample data
+    generate_sample_data(20) # Generate 20 sample data

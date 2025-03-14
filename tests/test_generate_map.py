@@ -11,86 +11,103 @@ class TestGenerateMap(unittest.TestCase):
     num_hard_obstacles = 3
     num_robots = 2
     tetherDist = 2
+    num_leaders = 1
+    num_target = 1
 
     def test_generate_map_size(self):
-        grid, robots, target = generate_map(
+        grid, robots, targets = generate_map(
             rowSize=self.size,
             colSize=self.size, 
             num_soft_obstacles=self.num_soft_obstacles, 
             num_hard_obstacles=self.num_hard_obstacles, 
             num_robots=self.num_robots,
-            tetherDist=self.tetherDist
+            tetherDist=self.tetherDist,
+            num_leaders=self.num_leaders,
+            num_target=self.num_target
         )
         self.assertEqual(grid.shape, (self.size, self.size))
 
     def test_generate_map_obstacles(self):
-        grid, robots, target = generate_map(
+        grid, robots, targets = generate_map(
             rowSize=self.size,
             colSize=self.size, 
             num_soft_obstacles=self.num_soft_obstacles, 
             num_hard_obstacles=self.num_hard_obstacles, 
             num_robots=self.num_robots,
-            tetherDist=self.tetherDist
+            tetherDist=self.tetherDist,
+            num_leaders=self.num_leaders,
+            num_target=self.num_target
         )
         self.assertEqual(np.sum(grid == 1), self.num_soft_obstacles)
         self.assertEqual(np.sum(grid == 2), self.num_hard_obstacles)
 
     def test_generate_map_robots(self):
-        grid, robots, target = generate_map(
+        grid, robots, targets = generate_map(
             rowSize=self.size,
             colSize=self.size, 
             num_soft_obstacles=self.num_soft_obstacles, 
             num_hard_obstacles=self.num_hard_obstacles, 
             num_robots=self.num_robots,
-            tetherDist=self.tetherDist
+            tetherDist=self.tetherDist,
+            num_leaders=self.num_leaders,
+            num_target=self.num_target
         )
         self.assertEqual(len(robots), self.num_robots)
         for robot in robots:
             self.assertIn(robot['role'], ['leader', 'follower'])
 
     def test_generate_map_target(self):
-        grid, robots, target = generate_map(
+        grid, robots, targets = generate_map(
             rowSize=self.size,
             colSize=self.size, 
             num_soft_obstacles=self.num_soft_obstacles, 
             num_hard_obstacles=self.num_hard_obstacles, 
             num_robots=self.num_robots,
-            tetherDist=self.tetherDist
+            tetherDist=self.tetherDist,
+            num_leaders=self.num_leaders,
+            num_target=self.num_target
         )
-        self.assertEqual(grid[target], 4)
+        self.assertEqual(len(targets), self.num_target)
+        for target in targets:
+            self.assertEqual(grid[target], 4)
 
     def test_generate_map_no_obstacles(self):
-        grid, robots, target = generate_map(
+        grid, robots, targets = generate_map(
             rowSize=self.size,
             colSize=self.size, 
             num_soft_obstacles=0, 
             num_hard_obstacles=0, 
             num_robots=self.num_robots,
-            tetherDist=self.tetherDist
+            tetherDist=self.tetherDist,
+            num_leaders=self.num_leaders,
+            num_target=self.num_target
         )
         self.assertEqual(np.sum(grid == 1), 0)
         self.assertEqual(np.sum(grid == 2), 0)
 
     def test_generate_map_no_robots(self):
-        grid, robots, target = generate_map(
+        grid, robots, targets = generate_map(
             rowSize=self.size,
             colSize=self.size, 
             num_soft_obstacles=self.num_soft_obstacles, 
             num_hard_obstacles=self.num_hard_obstacles, 
             num_robots=0,
-            tetherDist=self.tetherDist
+            tetherDist=self.tetherDist,
+            num_leaders=self.num_leaders,
+            num_target=self.num_target
         )
         self.assertEqual(len(robots), 0)
     
     def test_generate_map_more_leaders(self):
-        grid, robots, target = generate_map(
+        grid, robots, targets = generate_map(
             rowSize=self.size,
             colSize=self.size, 
             num_soft_obstacles=self.num_soft_obstacles, 
             num_hard_obstacles=self.num_hard_obstacles, 
             num_robots=5,
             tetherDist=self.tetherDist,
-            num_leaders=3
+            num_leaders=3,
+            num_target=self.num_target
         )
         self.assertEqual(len([robot for robot in robots if robot['role'] == 'leader']), 3)
         self.assertEqual(len([robot for robot in robots if robot['role'] == 'follower']), 2)
@@ -103,6 +120,7 @@ class TestGenerateMap(unittest.TestCase):
             num_hard_obstacles=self.num_hard_obstacles, 
             num_robots=self.num_robots,
             tetherDist=self.tetherDist,
+            num_leaders=self.num_leaders,
             num_target=2
         )
         self.assertEqual(len(targets), 2)
