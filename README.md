@@ -1,14 +1,17 @@
 ## Environment Outline
+[Project Proposal](./proposal%20doc/MARL_Autonomous_Vehicle_Proposal.pdf)
+[Presenting Our Proposal](./MARL_autonomous_vehicle_proposal_presentation.pdf)
+[A Research Summary](./MARL-Lane_Changing-Presentation.pdf)
 <img src="poc/output_tethered_markers.png" alt="Proof of Concept Output" width="400" height="400"/>
 
-## LaTex Guide
+## LaTex Guide for Writing Reports
 To work with LaTex locally on your IDE, follow the steps below: 
 1. Install [MikTex](https://miktex.org/) as the LaTeX Distribution.
 2. Install [Perl](https://strawberryperl.com/).
 3. Install the VS Code Extension for previewing the LaTex in a PDF format, such as **LaTeX Workshop**.
 4. Previewing and Exporting will be available in the `.tex` file. 
 
-## Prerequisites for Codes
+## Prerequisites for Executable Codes in this Project
 * Create a Virtual Environment with this command on a terminal: `py -m venv marl_env`.
 * Update pip to its latest version with this command: `py -m pip install --upgrade pip`.
 * From the Virtual Environment, install all the dependencies with this command: `pip install -r requirements.txt`.
