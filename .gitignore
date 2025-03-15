@@ -6,3 +6,4 @@
 **/wheel-*-py3-none-any.whl
 **/*.docx
 **/__pycache__/
+.vscode/
