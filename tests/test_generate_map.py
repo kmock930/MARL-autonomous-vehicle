@@ -19,9 +19,7 @@ class TestGenerateMap(unittest.TestCase):
             num_soft_obstacles=self.num_soft_obstacles, 
             num_hard_obstacles=self.num_hard_obstacles, 
             num_robots=self.num_robots,
-            tetherDist=self.tetherDist,
-            num_leaders=self.num_leaders,
-            num_target=self.num_target
+            tetherDist=self.tetherDist
         )
         self.assertEqual(grid.shape, (self.size, self.size))
 
