@@ -14,6 +14,7 @@ sys.path.append(ROOT)
 from generate_map import generate_map
 from constants import ACTION_SPACE, REWARDS
 import random
+import time
 
 class SimpleGridEnv(Env):
     """
@@ -626,7 +627,13 @@ class SimpleGridEnv(Env):
         """
         Close the environment.
         """
-        plt.close(self.fig)
+        if self.fig is not None:
+            try:
+                plt.close(self.fig)
+            except Exception as e:
+                pass
+            self.fig = None
+
         sys.exit()
 
 if __name__ == "__main__":
@@ -634,10 +641,26 @@ if __name__ == "__main__":
     agent_map = ["0030", "0000", "0000", "0000"]
     target_map = ["0000", "0000", "0000", "0004"]
 
-    env = SimpleGridEnv(obstacle_map, agent_map, target_map, render_mode="human")
+    env = SimpleGridEnv(
+        obstacle_map=obstacle_map,
+        agent_map=agent_map,
+        target_map=target_map,
+        render_mode="human",
+        rowSize=4,
+        colSize=4,
+        num_soft_obstacles=1,
+        num_hard_obstacles=1,
+        num_robots=1,
+        tetherDist=1,
+        num_leaders=1,
+        num_target=1
+    )
     env.reset()
     env.render()
     for _ in range(10):
-        action = random.choice(env.MOVES)
+        action = random.choice([move.value for move in env.MOVES])
+        action_name = [move.name for move in env.MOVES if move.value == action][0]
+        print(f"Action: {action_name} {action}")
+        time.sleep(3)
         env.step(action)
     env.close()
