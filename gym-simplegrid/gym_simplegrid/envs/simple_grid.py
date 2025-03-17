@@ -253,6 +253,7 @@ class SimpleGridEnv(Env):
 
         # render the environment according to mode: ansi (string), rgb_array (numpy.ndarray), human (None + matplotlib visualization)
         render = self.render()
+        self.render_initial_frame()
 
         return {'observation': self.get_obs(), 'environment': render, **self.get_info()}
     
@@ -281,6 +282,7 @@ class SimpleGridEnv(Env):
         self.agent_actions = actions
 
         total_reward = 0
+        reset_required = False
 
         for agent_id, action in actions.items():
             agent = self.agents[agent_id]
@@ -293,23 +295,57 @@ class SimpleGridEnv(Env):
             target_row = row + dx
             target_col = col + dy
 
+            # Check if the move is valid
+            if self.is_in_bounds(target_row, target_col):
+                if self.is_free(target_row, target_col):
+                    # Check if the move is within the tethered distance
+                    if all(max(abs(target_row - other_agent['position'][0]), abs(target_col - other_agent['position'][1])) <= self.env_configurations["tetherDist"] for other_agent in self.agents):
+                        agent['position'] = (target_row, target_col)
+                        self.done = self.on_goal()
+                        if self.done:
+                            self.cumulative_reward += REWARDS.TARGET.value
+                            print("Target reached")
+                            reset_required = True
+                            break
+                    else:
+                        # Reset the game if the move is out of tethered distance
+                        print("Out of tethered distance")
+                        reset_required = True
+                        break
+                else:
+                    if (target_row, target_col) in [other_agent['position'] for other_agent in self.agents if other_agent != agent]:
+                        # Reset the game if the agent crashes with another agent
+                        print("Crash detected")
+                        reset_required = True
+                        break
+                    elif self.obstacles[target_row, target_col] == self.OBSTACLE_HARD:
+                        # Reset the game if the agent bumps into a hard obstacle
+                        print("Hard obstacle encountered")
+                        reset_required = True
+                        break
+            else:
+                # Reset the game if an agent attempts to go out of bound
+                print("Out of bounds")
+                reset_required = True
+                break
+
             # Compute the reward
             reward = self.get_reward(target_row, target_col)
             total_reward += reward
-        
-            # Check if the move is valid
-            if self.is_in_bounds(target_row, target_col) and self.is_free(target_row, target_col):
-                agent['position'] = (target_row, target_col)
-                self.done = self.on_goal()
 
         self.cumulative_reward += total_reward
         self.n_iter += 1
+
+        if reset_required:
+            self.reset()
+            self.render_initial_frame()
+            return self.get_obs(), self.cumulative_reward, True, False, self.get_info()
 
         # if self.render_mode == "human":
         self.render()
 
         return self.get_obs(), total_reward, self.done, False, self.get_info()
-    
+
     def parse_obstacle_map(self, obstacle_map) -> np.ndarray:
         """
         Initialise the grid.
@@ -523,6 +559,8 @@ class SimpleGridEnv(Env):
                 return REWARDS.HARD_OBSTACLE.value
         elif (x, y) == self.goal_xy:
             return REWARDS.TARGET.value
+        elif not all(max(abs(x - other_agent['position'][0]), abs(y - other_agent['position'][1])) <= self.env_configurations["tetherDist"] for other_agent in self.agents):
+            return REWARDS.OUT_OF_TETHER.value
         else:
             # if stay
             rewards: int = 0
@@ -721,5 +759,7 @@ if __name__ == "__main__":
         print(f"Actions: {actions}")
         time.sleep(3)
         env.step(actions)
+        if (env.done):
+            break
     print(f"cumulative reward: {env.cumulative_reward}")
     env.close()
