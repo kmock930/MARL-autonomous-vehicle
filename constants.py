@@ -17,5 +17,5 @@ class REWARDS(Enum):
     HARD_OBSTACLE = WALL = -50
     TARGET = 50
     STEP = -1
-    CRASH = -50
+    CRASH = OUT_OF_TETHER = -50
     STAY = -3
