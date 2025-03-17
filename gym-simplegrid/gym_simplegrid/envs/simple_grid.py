@@ -45,6 +45,9 @@ class SimpleGridEnv(Env):
 
     cumulative_reward: float
 
+    leaders = []
+    followers = []
+
     env_configurations = {
         "rowSize": 0,
         "colSize": 0,
@@ -58,9 +61,6 @@ class SimpleGridEnv(Env):
 
     def __init__(
         self, 
-        obstacle_map: str | list[str],
-        agent_map: str | list[str],
-        target_map: str | list[str],
         render_mode: str | None,
         rowSize: int,
         colSize: int,
@@ -69,7 +69,11 @@ class SimpleGridEnv(Env):
         num_robots: int,
         tetherDist: int,
         num_leaders: int,
-        num_target: int
+        num_target: int,
+        # allow supplying maps
+        obstacle_map: str | list[str] = None,
+        agent_map: str | list[str] = None,
+        target_map: str | list[str] = None,
     ):
         """
         Initialise the environment.
@@ -138,6 +142,9 @@ class SimpleGridEnv(Env):
             for target in self.agents:
                 self.targets[target['position'][0], target['position'][1]] = self.TARGET
             self.targets = np.array(self.targets)  # Ensure targets is a numpy array
+            # Ensure agents is a list of dicts if generated, otherwise a numpy array
+            if isinstance(self.agents, np.ndarray):
+                self.agents = [{'position': tuple(pos)} for pos in np.argwhere(self.agents == self.AGENT)]
             # Record the env configurations
             self.env_configurations = {
                 "rowSize": self.obstacles.shape[0],
@@ -149,6 +156,13 @@ class SimpleGridEnv(Env):
                 "num_leaders": len([agent for agent in self.agents if agent.get('role') == 'leader']),
                 "num_target": np.sum(self.targets == self.TARGET)
             }
+
+        # Separate agents into leaders and followers
+        for agent in self.agents:
+            if agent.get('role') == 'leader':
+                self.leaders.append(agent)
+            else:
+                self.followers.append(agent)
 
         # Convert maps to numpy arrays
         self.obstacles = np.array(self.obstacles)
@@ -214,6 +228,10 @@ class SimpleGridEnv(Env):
             num_target=self.env_configurations["num_target"]
         )
 
+        # Separate agents into leaders and followers
+        self.leaders = [agent for agent in self.robots if agent.get('role') == 'leader']
+        self.followers = [agent for agent in self.robots if agent.get('role') == 'follower']
+
         # Get valid start and goal positions
         self.start_xy = self.sample_valid_state_xy()
         self.goal_xy = self.sample_valid_state_xy()
@@ -230,15 +248,19 @@ class SimpleGridEnv(Env):
         # Check integrity
         self.integrity_checks()
 
-        if self.render_mode == "human":
-            self.render()
+        # render the environment according to mode: ansi (string), rgb_array (numpy.ndarray), human (None + matplotlib visualization)
+        render = self.render()
 
-        return {'observation': self.get_obs(), **self.get_info()}
+        return {'observation': self.get_obs(), 'environment': render, **self.get_info()}
     
-    def step(self, action: tuple[int, int]):
+    def step(self, actions: dict[int, tuple[int, int]]):
         """
-        action : tuple[int, int]
-            The action to be taken by the agent: coordinates (dx, dy).
+        Take a step in the environment.
+
+        Parameters
+        ----------
+        actions: dict[int, tuple[int, int]]
+            The actions to be taken by the agents: a dictionary where keys are agent indices and values are coordinates (dx, dy).
         
         Returns
         -------
@@ -253,32 +275,37 @@ class SimpleGridEnv(Env):
         info : dict
             Additional information about the environment.
         """
-        #assert action in self.action_space
-        self.agent_action = action
+        self.agent_actions = actions
 
-        # Get the current position of the agent
-        row, col = self.agent_xy
-        dx, dy = action
+        total_reward = 0
 
-        # Compute the target position of the agent
-        target_row = row + dx
-        target_col = col + dy
+        for agent_id, action in actions.items():
+            agent = self.agents[agent_id]
 
-        # Compute the reward
-        self.reward = self.get_reward(target_row, target_col)
-        self.cumulative_reward += self.reward
+            # Get the current position of the agent
+            row, col = agent['position']
+            dx, dy = action
+
+            # Compute the target position of the agent
+            target_row = row + dx
+            target_col = col + dy
+
+            # Compute the reward
+            reward = self.get_reward(target_row, target_col)
+            total_reward += reward
         
-        # Check if the move is valid
-        if self.is_in_bounds(target_row, target_col) and self.is_free(target_row, target_col):
-            self.agent_xy = (target_row, target_col)
-            self.done = self.on_goal()
+            # Check if the move is valid
+            if self.is_in_bounds(target_row, target_col) and self.is_free(target_row, target_col):
+                agent['position'] = (target_row, target_col)
+                self.done = self.on_goal()
 
+        self.cumulative_reward += total_reward
         self.n_iter += 1
 
         # if self.render_mode == "human":
         self.render()
 
-        return self.get_obs(), self.reward, self.done, False, self.get_info()
+        return self.get_obs(), total_reward, self.done, False, self.get_info()
     
     def parse_obstacle_map(self, obstacle_map) -> np.ndarray:
         """
@@ -501,13 +528,14 @@ class SimpleGridEnv(Env):
             # step
             rewards += REWARDS.STEP.value
             return rewards
+        return 0.0  # Ensure a float value is always returned
 
-    def get_obs(self) -> int:
-        return self.to_s(*self.agent_xy)
+    def get_obs(self) -> dict:
+        return {agent_id: self.to_s(*agent['position']) for agent_id, agent in enumerate(self.agents)}
     
     def get_info(self) -> dict:
         return {
-            'agent_xy': self.agent_xy,
+            'agent_positions': {agent_id: agent['position'] for agent_id, agent in enumerate(self.agents)},
             'n_iter': self.n_iter,
             'cumulative_reward': self.cumulative_reward
         }
@@ -546,16 +574,18 @@ class SimpleGridEnv(Env):
             self.update_agent_patch()
         self.ax.set_title(f"Step: {self.n_iter}, Reward: {self.reward}")
     
-    def create_agent_patch(self):
+    def create_agent_patch(self, agent):
         """
         Create a Circle patch for the agent.
 
         @NOTE: If agent position is (x,y) then, to properly render it, we have to pass (y,x) as center to the Circle patch.
         """
+        x, y = agent['position']
+        color = 'blue' if agent.get('role') == 'leader' else 'orange'
         return mpl.patches.Circle(
-            (self.agent_xy[1]+.5, self.agent_xy[0]+.5), 
+            (y + .5, x + .5), 
             0.3, 
-            facecolor='orange', 
+            facecolor=color, 
             fill=True, 
             edgecolor='black', 
             linewidth=1.5,
@@ -564,24 +594,30 @@ class SimpleGridEnv(Env):
 
     def update_agent_patch(self):
         """
-        @NOTE: If agent position is (x,y) then, to properly 
-        render it, we have to pass (y,x) as center to the Circle patch.
+        Update the position of the agent patches.
         """
-        self.agent_patch.center = (self.agent_xy[1]+.5, self.agent_xy[0]+.5)
+        for agent_patch, agent in zip(self.agent_patches, self.agents):
+            x, y = agent['position']
+            agent_patch.center = (y + .5, x + .5)
         return None
     
     def render_initial_frame(self):
         """
         Render the initial frame.
 
-        @NOTE: 0: free cell (white), 1: obstacle (black), 2: start (red), 3: goal (green)
+        @NOTE: 0: free cell (white), 1: soft obstacle (light gray), 2: hard obstacle (black), 3: start (red), 4: goal (green)
         """
         data = self.obstacles.copy()
-        data[self.start_xy] = 2
-        data[self.goal_xy] = 3
+        for agent in self.agents:
+            x, y = agent['position']
+            if data[x, y] == self.FREE:  # Only set if it's a free cell
+                data[x, y] = 3  # Mark agent starting positions in red
+        for target in self.targets:
+            x, y = target
+            data[x, y] = 4  # Mark target positions in green
 
-        colors = ['white', 'black', 'red', 'green']
-        bounds=[i-0.1 for i in [0, 1, 2, 3, 4]]
+        colors = ['white', 'lightgray', 'black', 'red', 'green']
+        bounds = [i-0.1 for i in range(6)]
 
         # create discrete colormap
         cmap = mpl.colors.ListedColormap(colors)
@@ -592,9 +628,8 @@ class SimpleGridEnv(Env):
         self.fig = fig
         self.ax = ax
 
-        #ax.grid(axis='both', color='#D3D3D3', linewidth=2) 
-        ax.grid(axis='both', color='k', linewidth=1.3) 
-        ax.set_xticks(np.arange(0, data.shape[1], 1))  # correct grid sizes
+        ax.grid(axis='both', color='k', linewidth=1.3)
+        ax.set_xticks(np.arange(0, data.shape[1], 1))
         ax.set_yticks(np.arange(0, data.shape[0], 1))
         ax.tick_params(
             bottom=False, 
@@ -614,14 +649,17 @@ class SimpleGridEnv(Env):
             interpolation='none'
         )
 
-        # Create white holes on start and goal positions
-        for pos in [self.start_xy, self.goal_xy]:
-            wp = self.create_white_patch(*pos)
+        # Create white holes on agent starting positions
+        for agent in self.agents:
+            wp = self.create_white_patch(*agent['position'])
             ax.add_patch(wp)
 
-        # Create agent patch in start position
-        self.agent_patch = self.create_agent_patch()
-        ax.add_patch(self.agent_patch)
+        # Create agent patches
+        self.agent_patches = []
+        for agent in self.agents:
+            agent_patch = self.create_agent_patch(agent)
+            self.agent_patches.append(agent_patch)
+            ax.add_patch(agent_patch)
 
         plt.show()  # Ensure the plot is displayed
 
@@ -650,8 +688,6 @@ class SimpleGridEnv(Env):
                 pass
             self.fig = None
 
-        sys.exit()
-
 if __name__ == "__main__":
     import time
 
@@ -660,26 +696,25 @@ if __name__ == "__main__":
     target_map = ["0000", "0000", "0000", "0004"]
 
     env = SimpleGridEnv(
-        obstacle_map=obstacle_map,
-        agent_map=agent_map,
-        target_map=target_map,
+        #obstacle_map=obstacle_map,
+        #agent_map=agent_map,
+        #target_map=target_map,
         render_mode="human",
-        rowSize=4,
-        colSize=4,
-        num_soft_obstacles=1,
-        num_hard_obstacles=1,
+        rowSize=5,
+        colSize=5,
+        num_soft_obstacles=5,
+        num_hard_obstacles=2,
         num_robots=2,
         tetherDist=1,
         num_leaders=1,
-        num_target=1
+        num_target=2
     )
     env.reset()
     env.render()
     for _ in range(10):
-        action = random.choice([move.value for move in env.MOVES])
-        action_name = [move.name for move in env.MOVES if move.value == action][0]
-        print(f"Action: {action_name} {action}")
+        actions = {agent_id: random.choice([move.value for move in env.MOVES]) for agent_id in range(len(env.agents))}
+        print(f"Actions: {actions}")
         time.sleep(3)
-        env.step(action)
+        env.step(actions)
     print(f"cumulative reward: {env.cumulative_reward}")
     env.close()
