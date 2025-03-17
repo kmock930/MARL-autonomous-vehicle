@@ -310,5 +310,64 @@ class TestSimpleGridEnv(unittest.TestCase):
         self.assertEqual(len(env.agents), 1)
         self.assertEqual(type(initial_state), dict)
         self.assertIn('observation', initial_state)
+
+    def test_parse_state_option_int(self):
+        env = SimpleGridEnv(
+            obstacle_map=None, 
+            agent_map=None, 
+            target_map=None, 
+            render_mode="human",
+            rowSize=4,
+            colSize=4,
+            num_soft_obstacles=2,
+            num_hard_obstacles=2,
+            num_robots=1,
+            tetherDist=2,
+            num_leaders=1,
+            num_target=1
+        )
+        env.reset(seed=42)
+        state = env.parse_state_option("start_loc", {"start_loc": 5})
+        self.assertEqual(state, (1, 1))  # Assuming a 4x4 grid
+
+    def test_parse_state_option_tuple(self):
+        env = SimpleGridEnv(
+            obstacle_map=None, 
+            agent_map=None, 
+            target_map=None, 
+            render_mode="human",
+            rowSize=4,
+            colSize=4,
+            num_soft_obstacles=2,
+            num_hard_obstacles=2,
+            num_robots=1,
+            tetherDist=2,
+            num_leaders=1,
+            num_target=1
+        )
+        env.reset(seed=42)
+        state = env.parse_state_option("goal_loc", {"goal_loc": (2, 2)})
+        self.assertEqual(state, (2, 2))
+
+    def test_parse_state_option_random(self):
+        env = SimpleGridEnv(
+            obstacle_map=None, 
+            agent_map=None, 
+            target_map=None, 
+            render_mode="human",
+            rowSize=4,
+            colSize=4,
+            num_soft_obstacles=2,
+            num_hard_obstacles=2,
+            num_robots=1,
+            tetherDist=2,
+            num_leaders=1,
+            num_target=1
+        )
+        env.reset(seed=42)
+        state = env.parse_state_option("start_loc", {})
+        self.assertEqual(type(state), tuple)
+        self.assertEqual(len(state), 2)
+
 if __name__ == '__main__':
     unittest.main()
