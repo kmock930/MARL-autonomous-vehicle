@@ -14,7 +14,6 @@ sys.path.append(ROOT)
 from generate_map import generate_map
 from constants import ACTION_SPACE, REWARDS
 import random
-import time
 
 class SimpleGridEnv(Env):
     """
@@ -43,6 +42,8 @@ class SimpleGridEnv(Env):
     obstacle_map: np.ndarray
     agents: np.ndarray | list[dict]
     targets: np.ndarray
+
+    cumulative_reward: float
 
     env_configurations = {
         "rowSize": 0,
@@ -163,6 +164,8 @@ class SimpleGridEnv(Env):
         self.action_space = spaces.Discrete(len(self.MOVES))
         self.observation_space = spaces.Discrete(n=self.nrow*self.ncol)
 
+        self.cumulative_reward = 0
+
         # Rendering configuration
         self.fig = None
 
@@ -196,6 +199,8 @@ class SimpleGridEnv(Env):
             np.random.seed(seed)
         else: 
             seed=random.randint(0, 1000) if seed is None else seed
+
+        self.cumulative_reward = 0
 
         # Re-generating a new map within an episode
         self.obstacles, self.robots, self.targets = generate_map(
@@ -232,12 +237,21 @@ class SimpleGridEnv(Env):
     
     def step(self, action: tuple[int, int]):
         """
-        Take a step in the environment.
-
-        Parameters
-        ----------
-        action: tuple[int, int]
-            The action to be taken by the agent: coordinates (x,y).
+        action : tuple[int, int]
+            The action to be taken by the agent: coordinates (dx, dy).
+        
+        Returns
+        -------
+        observation : Any
+            The observation of the current state.
+        reward : float
+            The reward obtained after taking the action.
+        done : bool
+            Whether the episode has ended.
+        truncated : bool
+            Whether the episode was truncated (always False in this implementation).
+        info : dict
+            Additional information about the environment.
         """
         #assert action in self.action_space
         self.agent_action = action
@@ -252,6 +266,7 @@ class SimpleGridEnv(Env):
 
         # Compute the reward
         self.reward = self.get_reward(target_row, target_col)
+        self.cumulative_reward += self.reward
         
         # Check if the move is valid
         if self.is_in_bounds(target_row, target_col) and self.is_free(target_row, target_col):
@@ -494,6 +509,7 @@ class SimpleGridEnv(Env):
         return {
             'agent_xy': self.agent_xy,
             'n_iter': self.n_iter,
+            'cumulative_reward': self.cumulative_reward
         }
 
     def render(self):
@@ -637,6 +653,8 @@ class SimpleGridEnv(Env):
         sys.exit()
 
 if __name__ == "__main__":
+    import time
+
     obstacle_map = ["0000", "0101", "0001", "1000"]
     agent_map = ["0030", "0000", "0000", "0000"]
     target_map = ["0000", "0000", "0000", "0004"]
@@ -650,7 +668,7 @@ if __name__ == "__main__":
         colSize=4,
         num_soft_obstacles=1,
         num_hard_obstacles=1,
-        num_robots=1,
+        num_robots=2,
         tetherDist=1,
         num_leaders=1,
         num_target=1
@@ -663,4 +681,5 @@ if __name__ == "__main__":
         print(f"Action: {action_name} {action}")
         time.sleep(3)
         env.step(action)
+    print(f"cumulative reward: {env.cumulative_reward}")
     env.close()
