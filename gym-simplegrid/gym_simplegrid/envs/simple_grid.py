@@ -338,7 +338,7 @@ class SimpleGridEnv(Env):
 
         if reset_required:
             self.reset()
-            self.render_initial_frame()
+            self.render()
             return self.get_obs(), self.cumulative_reward, True, False, self.get_info()
 
         # if self.render_mode == "human":
