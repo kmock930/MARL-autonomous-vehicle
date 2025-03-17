@@ -373,5 +373,62 @@ class TestSimpleGridEnv(unittest.TestCase):
         self.assertEqual(type(state), tuple)
         self.assertEqual(len(state), 2)
 
+    def test_render_mode_rgb_array(self):
+        # Define a simple map
+        obstacle_map = ["0000", "0101", "0001", "1000"]
+        agent_map = ["0030", "0000", "0000", "0000"]
+        target_map = ["0000", "0000", "0000", "0004"]
+
+        # Initialize the environment with render_mode="rgb_array"
+        self.env = SimpleGridEnv(
+            obstacle_map=obstacle_map, 
+            agent_map=agent_map, 
+            target_map=target_map, 
+            render_mode="rgb_array",
+            rowSize=4,
+            colSize=4,
+            num_soft_obstacles=2,
+            num_hard_obstacles=2,
+            num_robots=1,
+            tetherDist=2,
+            num_leaders=1,
+            num_target=1
+        )
+        
+        self.env.reset()
+        img = self.env.render()
+        self.assertEqual(type(img), np.ndarray)
+        self.assertEqual(img.shape[2], 4)  # Check if the image has 4 channels (RGBA)
+        print(f"Image shape: {img.shape}")
+        print(f"Image: {img}")
+
+    def test_render_mode_ansi(self):
+        # Define a simple map
+        obstacle_map = ["0000", "0101", "0001", "1000"]
+        agent_map = ["0030", "0000", "0000", "0000"]
+        target_map = ["0000", "0000", "0000", "0004"]
+
+        # Initialize the environment with render_mode="ansi"
+        self.env = SimpleGridEnv(
+            obstacle_map=obstacle_map, 
+            agent_map=agent_map, 
+            target_map=target_map, 
+            render_mode="ansi",
+            rowSize=4,
+            colSize=4,
+            num_soft_obstacles=2,
+            num_hard_obstacles=2,
+            num_robots=1,
+            tetherDist=2,
+            num_leaders=1,
+            num_target=1
+        )
+        
+        self.env.reset()
+        ansi_output = self.env.render()
+        self.assertEqual(type(ansi_output), str)
+        self.assertIn(",", ansi_output)  # Check if the output contains comma-separated values
+        print(f"ANSI Output: {ansi_output}")
+
 if __name__ == '__main__':
     unittest.main()
