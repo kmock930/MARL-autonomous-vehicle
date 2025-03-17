@@ -232,6 +232,9 @@ class SimpleGridEnv(Env):
         self.leaders = [agent for agent in self.robots if agent.get('role') == 'leader']
         self.followers = [agent for agent in self.robots if agent.get('role') == 'follower']
 
+        # Update self.agents from self.robots
+        self.agents = self.robots
+
         # Get valid start and goal positions
         self.start_xy = self.sample_valid_state_xy()
         self.goal_xy = self.sample_valid_state_xy()
@@ -608,13 +611,15 @@ class SimpleGridEnv(Env):
         @NOTE: 0: free cell (white), 1: soft obstacle (light gray), 2: hard obstacle (black), 3: start (red), 4: goal (green)
         """
         data = self.obstacles.copy()
+        print(f"Data: {data}")
+        print(f"Agents: {self.agents}")
         for agent in self.agents:
             x, y = agent['position']
             if data[x, y] == self.FREE:  # Only set if it's a free cell
-                data[x, y] = 3  # Mark agent starting positions in red
+                data[x, y] = self.AGENT  # Mark agent starting positions in red
         for target in self.targets:
             x, y = target
-            data[x, y] = 4  # Mark target positions in green
+            data[x, y] = self.TARGET  # Mark target positions in green
 
         colors = ['white', 'lightgray', 'black', 'red', 'green']
         bounds = [i-0.1 for i in range(6)]
