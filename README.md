@@ -24,3 +24,30 @@ To work with LaTex locally on your IDE, follow the steps below:
 `.
 * Atari is available via Gymnasium: <url>https://www.gymlibrary.dev/environments/atari/index.html</url>
 * Clone the repository <url>https://github.com/damat-le/gym-simplegrid.git</url> to get the codes of a simple grid-based environment for customization. 
+
+## Environment's Representation
+### Array Representation
+The rgb_array shape Image shape: (480, 640, 4) represents the dimensions and color channels of the rendered image of the environment. Here's a breakdown of what each dimension represents:
+
+Breakdown of the Shape
+Height (480): The first dimension (480) represents the **height** of the image in pixels.
+Width (640): The second dimension (640) represents the **width** of the image in pixels.
+Color Channels (4): The third dimension (4) represents the **color channels** of the image. In this case, there are 4 channels, which typically correspond to the RGBA color model:
+* R: Red channel
+* G: Green channel
+* B: Blue channel
+* A: Alpha channel (transparency)
+
+Explanation
+Height and Width: The height and width of the image determine the resolution of the rendered image. In this case, the image has a resolution of 480x640 pixels.
+Color Channels: The 4 color channels (RGBA) provide information about the color and transparency of each pixel in the image. The alpha channel allows for transparency effects, which can be useful for rendering overlapping objects or semi-transparent elements.
+
+### String Representation
+When the environment is rendered in ansi mode, the render method generates a string that represents the current state of the environment. This string typically includes information such as the current step, the agent's position, the reward obtained, whether the episode has ended, and the agent's action.
+
+Example:
+
+`Step: 5, Agent Position: (2, 3), Reward: -1, Done: False, Action: (1, 0)`
+
+## Visual Representation for debugging
+![alt text](<env_human_render.jpg>)
