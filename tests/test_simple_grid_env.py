@@ -9,6 +9,10 @@ sys.path.append(SIMPLEGRID_PATH)
 from simple_grid import SimpleGridEnv
 
 class TestSimpleGridEnv(unittest.TestCase):
+    def tearDown(self):
+        if hasattr(self, 'env'):
+            self.env.close()
+
     def test_samplevalidStatexy(self):
         # Define a simple map
         obstacle_map = ["0000", "0101", "0001", "1000"]
@@ -16,7 +20,7 @@ class TestSimpleGridEnv(unittest.TestCase):
         target_map = ["0000", "0000", "0000", "0004"]
 
         # Initialize the environment
-        env = SimpleGridEnv(
+        self.env = SimpleGridEnv(
             obstacle_map=obstacle_map, 
             agent_map=agent_map, 
             target_map=target_map, 
@@ -31,7 +35,7 @@ class TestSimpleGridEnv(unittest.TestCase):
             num_target=1
         )
         
-        valid_state:tuple = env.sample_valid_state_xy()
+        valid_state:tuple = self.env.sample_valid_state_xy()
         self.assertEqual(type(valid_state), tuple)
         self.assertEqual(len(valid_state), 2)
     
@@ -42,7 +46,7 @@ class TestSimpleGridEnv(unittest.TestCase):
         target_map = ["0000", "0000", "0000", "0004"]
 
         # Initialize the environment
-        env = SimpleGridEnv(
+        self.env = SimpleGridEnv(
             obstacle_map=obstacle_map, 
             agent_map=agent_map, 
             target_map=target_map, 
@@ -57,7 +61,7 @@ class TestSimpleGridEnv(unittest.TestCase):
             num_target=1
         )
         
-        parsed_obstacle_map = env.parse_obstacle_map(
+        parsed_obstacle_map = self.env.parse_obstacle_map(
             obstacle_map=obstacle_map
         )
         self.assertEqual(type(parsed_obstacle_map), np.ndarray)
@@ -70,7 +74,7 @@ class TestSimpleGridEnv(unittest.TestCase):
         target_map = "0000\n0000\n0000\n0004"
 
         # Initialize the environment
-        env = SimpleGridEnv(
+        self.env = SimpleGridEnv(
             obstacle_map=obstacle_map, 
             agent_map=agent_map, 
             target_map=target_map, 
@@ -85,7 +89,7 @@ class TestSimpleGridEnv(unittest.TestCase):
             num_target=1
         )
         
-        parsed_obstacle_map = env.parse_obstacle_map(
+        parsed_obstacle_map = self.env.parse_obstacle_map(
             obstacle_map=obstacle_map
         )
         self.assertEqual(type(parsed_obstacle_map), np.ndarray)
@@ -98,7 +102,7 @@ class TestSimpleGridEnv(unittest.TestCase):
         target_map = ["0000", "0000", "0000", "0004"]
 
         # Initialize the environment
-        env = SimpleGridEnv(
+        self.env = SimpleGridEnv(
             obstacle_map=obstacle_map, 
             agent_map=agent_map, 
             target_map=target_map, 
@@ -113,7 +117,7 @@ class TestSimpleGridEnv(unittest.TestCase):
             num_target=1
         )
         
-        parsed_agent_map = env.parse_agent_map(
+        parsed_agent_map = self.env.parse_agent_map(
             agent_map=agent_map
         )
         self.assertEqual(type(parsed_agent_map), list)
@@ -126,7 +130,7 @@ class TestSimpleGridEnv(unittest.TestCase):
         target_map = "0000\n0000\n0000\n0004"
 
         # Initialize the environment
-        env = SimpleGridEnv(
+        self.env = SimpleGridEnv(
             obstacle_map=obstacle_map, 
             agent_map=agent_map, 
             target_map=target_map, 
@@ -141,7 +145,7 @@ class TestSimpleGridEnv(unittest.TestCase):
             num_target=1
         )
         
-        parsed_agent_map = env.parse_agent_map(
+        parsed_agent_map = self.env.parse_agent_map(
             agent_map=agent_map
         )
         self.assertEqual(type(parsed_agent_map), list)
@@ -154,7 +158,7 @@ class TestSimpleGridEnv(unittest.TestCase):
         target_map = ["0000", "0000", "0000", "0004"]
 
         # Initialize the environment
-        env = SimpleGridEnv(
+        self.env = SimpleGridEnv(
             obstacle_map=obstacle_map, 
             agent_map=agent_map, 
             target_map=target_map, 
@@ -169,7 +173,7 @@ class TestSimpleGridEnv(unittest.TestCase):
             num_target=1
         )
         
-        parsed_target_map = env.parse_target_map(
+        parsed_target_map = self.env.parse_target_map(
             target_map=target_map
         )
         self.assertEqual(type(parsed_target_map), np.ndarray)
@@ -182,7 +186,7 @@ class TestSimpleGridEnv(unittest.TestCase):
         target_map = "0000\n0000\n0000\n0004"
 
         # Initialize the environment
-        env = SimpleGridEnv(
+        self.env = SimpleGridEnv(
             obstacle_map=obstacle_map, 
             agent_map=agent_map, 
             target_map=target_map, 
@@ -197,7 +201,7 @@ class TestSimpleGridEnv(unittest.TestCase):
             num_target=1
         )
         
-        parsed_target_map = env.parse_target_map(
+        parsed_target_map = self.env.parse_target_map(
             target_map=target_map
         )
         self.assertEqual(type(parsed_target_map), np.ndarray)
@@ -210,7 +214,7 @@ class TestSimpleGridEnv(unittest.TestCase):
         target_map = ["0000", "0000", "0000", "0004"]
 
         # Initialize the environment with predefined maps
-        env = SimpleGridEnv(
+        self.env = SimpleGridEnv(
             obstacle_map=obstacle_map, 
             agent_map=agent_map, 
             target_map=target_map, 
@@ -225,15 +229,15 @@ class TestSimpleGridEnv(unittest.TestCase):
             num_target=1
         )
         
-        self.assertEqual(env.nrow, 4)
-        self.assertEqual(env.ncol, 4)
-        self.assertEqual(env.obstacles.shape, (4, 4))
-        self.assertEqual(env.targets.shape, (4, 4))
-        self.assertEqual(len(env.agents), 1)
+        self.assertEqual(self.env.nrow, 4)
+        self.assertEqual(self.env.ncol, 4)
+        self.assertEqual(self.env.obstacles.shape, (4, 4))
+        self.assertEqual(self.env.targets.shape, (4, 4))
+        self.assertEqual(len(self.env.agents), 1)
 
     def test_initialize_without_predefined_maps(self):
         # Initialize the environment without predefined maps
-        env = SimpleGridEnv(
+        self.env = SimpleGridEnv(
             obstacle_map=None, 
             agent_map=None, 
             target_map=None, 
@@ -248,11 +252,11 @@ class TestSimpleGridEnv(unittest.TestCase):
             num_target=1
         )
         
-        self.assertEqual(env.nrow, 4)
-        self.assertEqual(env.ncol, 4)
-        self.assertEqual(env.obstacles.shape, (4, 4))
-        self.assertEqual(env.targets.shape, (4, 4))
-        self.assertEqual(len(env.agents), 1)
+        self.assertEqual(self.env.nrow, 4)
+        self.assertEqual(self.env.ncol, 4)
+        self.assertEqual(self.env.obstacles.shape, (4, 4))
+        self.assertEqual(self.env.targets.shape, (4, 4))
+        self.assertEqual(len(self.env.agents), 1)
 
     def test_reset_with_predefined_maps(self):
         # Define a simple map
@@ -261,7 +265,7 @@ class TestSimpleGridEnv(unittest.TestCase):
         target_map = ["0000", "0000", "0000", "0004"]
 
         # Initialize the environment with predefined maps
-        env = SimpleGridEnv(
+        self.env = SimpleGridEnv(
             obstacle_map=obstacle_map, 
             agent_map=agent_map, 
             target_map=target_map, 
@@ -276,18 +280,18 @@ class TestSimpleGridEnv(unittest.TestCase):
             num_target=1
         )
         
-        initial_state = env.reset()
-        self.assertEqual(env.nrow, 4)
-        self.assertEqual(env.ncol, 4)
-        self.assertEqual(env.obstacles.shape, (4, 4))
-        self.assertEqual(env.targets.shape, (1, 2))
-        self.assertEqual(len(env.agents), 1)
+        initial_state = self.env.reset()
+        self.assertEqual(self.env.nrow, 4)
+        self.assertEqual(self.env.ncol, 4)
+        self.assertEqual(self.env.obstacles.shape, (4, 4))
+        self.assertEqual(self.env.targets.shape, (1, 2))
+        self.assertEqual(len(self.env.agents), 1)
         self.assertEqual(type(initial_state), dict)
         self.assertIn('observation', initial_state)
 
     def test_reset_without_predefined_maps(self):
         # Initialize the environment without predefined maps
-        env = SimpleGridEnv(
+        self.env = SimpleGridEnv(
             obstacle_map=None, 
             agent_map=None, 
             target_map=None, 
@@ -302,17 +306,17 @@ class TestSimpleGridEnv(unittest.TestCase):
             num_target=1
         )
         
-        initial_state = env.reset()
-        self.assertEqual(env.nrow, 4)
-        self.assertEqual(env.ncol, 4)
-        self.assertEqual(env.obstacles.shape, (4, 4))
-        self.assertEqual(env.targets.shape, (1, 2))
-        self.assertEqual(len(env.agents), 1)
+        initial_state = self.env.reset()
+        self.assertEqual(self.env.nrow, 4)
+        self.assertEqual(self.env.ncol, 4)
+        self.assertEqual(self.env.obstacles.shape, (4, 4))
+        self.assertEqual(self.env.targets.shape, (1, 2))
+        self.assertEqual(len(self.env.agents), 1)
         self.assertEqual(type(initial_state), dict)
         self.assertIn('observation', initial_state)
 
     def test_parse_state_option_int(self):
-        env = SimpleGridEnv(
+        self.env = SimpleGridEnv(
             obstacle_map=None, 
             agent_map=None, 
             target_map=None, 
@@ -326,12 +330,12 @@ class TestSimpleGridEnv(unittest.TestCase):
             num_leaders=1,
             num_target=1
         )
-        env.reset(seed=42)
-        state = env.parse_state_option("start_loc", {"start_loc": 5})
+        self.env.reset(seed=42)
+        state = self.env.parse_state_option("start_loc", {"start_loc": 5})
         self.assertEqual(state, (1, 1))  # Assuming a 4x4 grid
 
     def test_parse_state_option_tuple(self):
-        env = SimpleGridEnv(
+        self.env = SimpleGridEnv(
             obstacle_map=None, 
             agent_map=None, 
             target_map=None, 
@@ -345,12 +349,12 @@ class TestSimpleGridEnv(unittest.TestCase):
             num_leaders=1,
             num_target=1
         )
-        env.reset(seed=42)
-        state = env.parse_state_option("goal_loc", {"goal_loc": (2, 2)})
+        self.env.reset(seed=42)
+        state = self.env.parse_state_option("goal_loc", {"goal_loc": (2, 2)})
         self.assertEqual(state, (2, 2))
 
     def test_parse_state_option_random(self):
-        env = SimpleGridEnv(
+        self.env = SimpleGridEnv(
             obstacle_map=None, 
             agent_map=None, 
             target_map=None, 
@@ -364,8 +368,8 @@ class TestSimpleGridEnv(unittest.TestCase):
             num_leaders=1,
             num_target=1
         )
-        env.reset(seed=42)
-        state = env.parse_state_option("start_loc", {})
+        self.env.reset(seed=42)
+        state = self.env.parse_state_option("start_loc", {})
         self.assertEqual(type(state), tuple)
         self.assertEqual(len(state), 2)
 
