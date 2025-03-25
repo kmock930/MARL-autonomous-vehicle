@@ -40,53 +40,64 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, Dense, LSTM
 from tensorflow.keras import layers
 from tensorflow.keras.optimizers import Adam
-from enum import Enum
-from collections import deque
-import random
+from constants import ACTION_SPACE, REWARDS
+# Import the Env
+import sys
+import os
+SIMPLEGRID_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), 'gym-simplegrid', 'gym_simplegrid', 'envs'))
+sys.path.append(SIMPLEGRID_PATH)
+from simple_grid import SimpleGridEnv
+from agent import Agent  # Import the Agent class
 
 FREE: int = 0
 OBSTACLE_SOFT: int = 1
 OBSTACLE_HARD: int = 2
 AGENT: int = 3
-# LEADER: int = 3
-# FOLLOWER: int = 5
 TARGET: int = 4
 
-agents: np.ndarray | list[dict]
-agents = [
-    {"id": 0, "role": "leader"},
-    {"id": 1, "role": "follower"}
-]
+# Define LEADER and FOLLOWER constants for role-based checks
+LEADER = "leader"
+FOLLOWER = "follower"
 
-class ACTION_SPACE(Enum):
-    UP = (0, -1)
-    DOWN = (0, 1)
-    LEFT = (-1, 0)
-    RIGHT = (1, 0)
-    STAY = (0, 0)
-    UP_LEFT = (-1, -1)
-    UP_RIGHT = (1, -1)
-    DOWN_LEFT = (-1, 1)
-    DOWN_RIGHT = (1, 1)
+# Modify the `new_pos` function to check roles using the Agent class
+def new_pos(agent_position: tuple[int, int], action: ACTION_SPACE, agents: list[Agent]):
+    x, y = agent_position
+    dx, dy = action #.value
 
-# Diagnol
-def new_pos(agent_position, action):
-  x,y = agent_position[0]
-  dx,dy = action.value
+    new_pos = (x + dx, y + dy)
 
-  new_pos = (x + dx, y+ dy)
-
-  if not (0 <= new_pos[0] < 10 and 0 <= new_pos[1] < 10):
+    if not (0 <= new_pos[0] < env.env_configurations["rowSize"] and 0 <= new_pos[1] < env.env_configurations["colSize"]):
         return agent_position
 
-  if env[new_pos] in [LEADER, FOLLOWER, OBSTACLE_SOFT, OBSTACLE_HARD]:
-    return agent_position
+    # Check if the new position is occupied by another agent or obstacle
+    for agent in agents:
+        if agent["position"] == new_pos:
+            if agent.role in [LEADER, FOLLOWER]:
+                return agent_position
 
-  # elif env[new_pos] == 0 or env[new_pos] == 4:
-  #   env[new_pos] == AGENT
-  #   env[agent_position] = FREE
+    if env.obstacles[new_pos] in [OBSTACLE_SOFT, OBSTACLE_HARD]:
+        return agent_position # Stay
 
-  return new_pos
+    return new_pos
+
+# Diagonal
+# def new_pos(agent_position: tuple[int, int], action: ACTION_SPACE):
+#   x,y = agent_position[0]
+#   dx,dy = action.value
+
+#   new_pos = (x + dx, y+ dy)
+
+#   if not (0 <= new_pos[0] < 10 and 0 <= new_pos[1] < 10):
+#         return agent_position
+
+#   if env[new_pos] in [LEADER, FOLLOWER, OBSTACLE_SOFT, OBSTACLE_HARD]:
+#     return agent_position
+
+#   # elif env[new_pos] == 0 or env[new_pos] == 4:
+#   #   env[new_pos] == AGENT
+#   #   env[agent_position] = FREE
+
+#   return new_pos
 
 # def calculate_reward(env, leader_pos, follower_pos, target):
 #   reward = 0
@@ -238,130 +249,139 @@ def contrastive_loss(messages, positive_pairs, temperature=0.1):
     loss = tf.keras.losses.CategoricalCrossentropy(from_logits=True)(labels, sim_matrix)
     return loss
 
-def train_MAPPO(episodes, leader_model, follower_model, encoded_model, leader_pos, target_pos,follower_pos):
-  leader_path = [leader_pos.name]
-  optimizer = Adam(learning_rate=lr)
+# Initialize the environment
+env = SimpleGridEnv(
+    render_mode=None,
+    rowSize=10,
+    colSize=10,
+    num_soft_obstacles=10,
+    num_hard_obstacles=5,
+    num_robots=2,
+    tetherDist=2,
+    num_leaders=1,
+    num_target=1
+)
 
-  for episode in range(episodes):
-    # reset the environment
-    env[:] = FREE
-    env[leader_pos] = LEADER
-    env[follower_pos] = FOLLOWER
-    env[target_pos] = TARGET
+def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env):
+    optimizer = Adam(learning_rate=lr)
 
-    total_reward = 0
+    for episode in range(episodes):
+        # Reset the environment
+        obs = env.reset()
+        leader_pos = env.leaders[0]['position']
+        follower_pos = env.followers[0]['position']
+        target_pos = np.argwhere(env.targets == env.TARGET)[0]
 
-    follower_path = [follower_pos]
-    episode_reset = False
+        total_reward = 0
+        leader_path = [leader_pos]
+        follower_path = [follower_pos]
+        episode_reset = False
 
-    for step in range(2):
+        for step in range(100):  # Limit the number of steps per episode
+            # Leader generates a message and takes an action
+            leader_message = get_leader_message(leader_pos)
+            leader_message.append(-1)
+            leader_message.append(-1)
+            leader_action_probs = leader_model.predict(np.array(leader_message[:8]).reshape(1, -1))
+            leader_action = list(ACTION_SPACE)[np.argmax(leader_action_probs)]
+            leader_message[6], leader_message[7] = leader_action.value
+            new_leader_pos = env.step({0: leader_action.value})[1]['agent_positions'][0]
 
-        # Leader moves
-        leader_message = get_leader_message(leader_pos)
-        leader_message.append(-1)
-        leader_message.append(-1)
-        print("*********")
-        leader_action_probs = leader_model.predict(np.array(leader_message[:8]).reshape(1, -1))
-        leader_action = list(ACTION_SPACE)[np.argmax(leader_action_probs)]
+            # Encode and decode the leader's message
+            encoded_msg = encoded_model.predict(np.array(leader_message[:8]).reshape(1, -1))
+            decoded_msg = encoded_msg.reshape(-1)
 
-        print('kimia')
-        leader_message[6], leader_message[7] = leader_action.value
-        new_leader_pos = new_pos(leader_pos, leader_action)
-        # new_leader_pos = move_agent(leader_pos, leader_action)
-        print(leader_action.value)
+            # Follower takes an action based on the decoded message
+            follower_action_probs = follower_model.predict(decoded_msg.reshape(1, -1))
+            follower_action = list(ACTION_SPACE)[np.argmax(follower_action_probs)]
+            new_follower_pos = new_pos(follower_pos, follower_action)
+            print("follower")
 
-        # encoded decoded
-        print(len(leader_message))
-        encoded_msg = encoded_model.predict(np.array(leader_message[:8]).reshape(1, -1))
-        decoded_msg = encoded_msg.reshape(-1)
-        print('leader')
+            # Compute distance
+            distance = np.sqrt((new_leader_pos[0][0] - new_follower_pos[0][0])**2 + (new_leader_pos[0][1] - new_follower_pos[0][1])**2)
 
-        # Follower moves
-        follower_action_probs = follower_model.predict(decoded_msg.reshape(1,-1))
-        follower_action = list(ACTION_SPACE)[np.argmax(follower_action_probs)]
-        new_follower_pos = new_pos(follower_pos, follower_action)
-        print("follower")
-        # compute distance
-        distance = np.sqrt((new_leader_pos[0][0] - new_follower_pos[0][0])**2 + (new_leader_pos[0][1] - new_follower_pos[0][1])**2)
+            x_l, y_l = new_leader_pos[0]
+            x_f, y_f = new_follower_pos[0]
 
-        x_l , y_l = new_leader_pos[0]
-        x_f , y_f = new_follower_pos[0]
+            if distance > 2 or distance < 1:
+                print(f"Episode {episode+1}: Distance constraint violated (Distance: {distance:.2f}). Resetting...")
+                break
 
-        if distance > 2 or distance < 1:
-          print(f"Episode {episode+1}: Distance constraint violated (Distance: {distance:.2f}). Resetting...")
-          break
+            elif env[x_l, y_l] == OBSTACLE_HARD or env[x_f, y_f] == OBSTACLE_HARD:
+                print(f"Episode {episode+1}: Hard obstacle constraint violated. Resetting...")
+                break
 
+            # Update the path and position
+            env[follower_pos] = FREE
+            follower_pos = new_follower_pos
+            env[follower_pos] = FOLLOWER
+            follower_path.append(follower_pos.name)
 
-        elif env[x_l, y_l] == OBSTACLE_HARD or env[x_f , y_f] == OBSTACLE_HARD:
-          print(f"Episode {episode+1}: Hard obstacle constraint violated. Resetting...")
-          break
+            env[leader_pos] = FREE
+            leader_pos = new_leader_pos
+            env[leader_pos] = LEADER
+            leader_path.append(leader_pos.name)
 
-        # update the path and position
-        env[follower_pos] = FREE
-        follower_pos = new_follower_pos
-        env[follower_pos] = FOLLOWER
-        follower_path.append(follower_pos.name)
+            # Compute reward
+            reward -= 1
+            if env[x_l, y_l] == TARGET or env[x_f, y_f] == TARGET:
+                reward += 50
+            elif env[x_l, y_l] == OBSTACLE_SOFT or env[x_f, y_f] == OBSTACLE_SOFT:
+                reward -= 10
 
-        env[leader_pos] = FREE
-        leader_pos = new_leader_pos
-        env[leader_pos] = LEADER
-        leader_path.append(leader_pos.name)
+            total_reward += reward
 
-
-        # compute reward
-        reward -= 1
-        if env[x_l, y_l] == TARGET or env[x_f , y_f] == TARGET:
-          reward += 50
-        elif env[x_l, y_l] == OBSTACLE_SOFT or env[x_f , y_f] == OBSTACLE_SOFT:
-          reward -= 10
-
-        total_reward += reward
-
-        mappo_model = MAPPO(leader_model, follower_model, encoded_model)
-        print("mappo")
-        with tf.GradientTape() as tape:
+            mappo_model = MAPPO(leader_model, follower_model, encoded_model)
+            print("mappo")
+            with tf.GradientTape() as tape:
                 loss = mappo_model.compute_loss(
                     np.array(leader_message[:8]), decoded_msg,
                     leader_action, follower_action, reward,
                     leader_message, encoded_msg, decoded_msg
                 )
 
-        # Update Policy
-        print("Update Policy")
-        grads = tape.gradient(loss, leader_model.trainable_variables + follower_model.trainable_variables)
-        optimizer.apply_gradients(zip(grads, leader_model.trainable_variables + follower_model.trainable_variables))
+            # Update Policy
+            print("Update Policy")
+            grads = tape.gradient(loss, leader_model.trainable_variables + follower_model.trainable_variables)
+            optimizer.apply_gradients(zip(grads, leader_model.trainable_variables + follower_model.trainable_variables))
 
-
-  if not episode_reset:
+        if not episode_reset:
             print(f"\nEpisode {episode+1} finished with Reward: {total_reward}")
             print(f"Leader Path: {leader_path}")
             print(f"Follower Path: {follower_path}\n")
 
-env = np.array([
-    [0, 0, 5, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 3, 4, 0, 0, 0, 0, 1, 1],
-    [0, 0, 0, 0, 0, 0, 2, 0, 0, 1],
-    [0, 0, 1, 0, 0, 0, 0, 0, 1, 0],
-    [0, 0, 0, 2, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 2, 0],
-    [0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 2, 0, 0, 0, 0, 0, 0, 1],
-    [0, 1, 0, 0, 1, 0, 1, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 2, 0, 0]
-  ])
 
-leader_pos= np.argwhere(env == LEADER)
-follower_pos= np.argwhere(env == FOLLOWER)
-target_pos = np.argwhere(env == TARGET)
+if __name__ == "main":
+  env = SimpleGridEnv(
+    render_mode="rgb_array", # numpy array representation
+    rowSize=10,
+    colSize=10,
+    num_soft_obstacles=10,
+    num_hard_obstacles=5,
+    num_robots=2,
+    tetherDist=2,
+    num_leaders=1,
+    num_target=1
+  )
 
-lr = 0.001
+  agents_init = [
+    Agent(env, role="leader"),
+    Agent(env, role="follower")
+  ]
+  agents = [{"id": agent._id_counter, "role": agent.role} for agent in agents_init]
 
-print(leader_pos)
-print(follower_pos)
-print(target_pos)
+  leader_pos= np.argwhere(env == LEADER)
+  follower_pos= np.argwhere(env == FOLLOWER)
+  target_pos = np.argwhere(env == TARGET)
 
-train_MAPPO(2, leader_policy, follower_policy, encoder_decoder,leader_pos, target_pos, follower_pos,)
+  lr = 0.001
 
-x,y = leader_pos[0]
-env[x,y]
+  print(leader_pos)
+  print(follower_pos)
+  print(target_pos)
+
+  train_MAPPO(2, leader_policy, follower_policy, encoder_decoder,leader_pos, target_pos, follower_pos,)
+
+  x,y = leader_pos[0]
+  env[x,y]
 
