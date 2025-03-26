@@ -75,21 +75,22 @@ env = SimpleGridEnv(
 # Modify the `new_pos` function to check roles using the Agent class
 def new_pos(agent_position: tuple[int, int], action: ACTION_SPACE, agents: list[Agent]):
     x, y = agent_position
-    dx, dy = action #.value
+    dx, dy = action.value
 
     new_pos = (x + dx, y + dy)
 
+    # Check if the new position is within the grid
     if not (0 <= new_pos[0] < env.env_configurations["rowSize"] and 0 <= new_pos[1] < env.env_configurations["colSize"]):
-        return agent_position
+        return agent_position # Stay
 
     # Check if the new position is occupied by another agent or obstacle
     for agent in agents:
         if agent["position"] == new_pos:
-            if agent.role in [LEADER, FOLLOWER]:
-                return agent_position
+            return agent_position  # Stay
 
-    if env.obstacles[new_pos] in [OBSTACLE_SOFT, OBSTACLE_HARD]:
-        return agent_position # Stay
+    # Check if the new position is an obstacle
+    if env.obstacles[new_pos[0], new_pos[1]] in [OBSTACLE_SOFT, OBSTACLE_HARD]:
+        return agent_position  # Stay
 
     return new_pos
 
@@ -282,7 +283,7 @@ def contrastive_loss(messages, positive_pairs, temperature=0.1):
     loss = tf.keras.losses.CategoricalCrossentropy(from_logits=True)(labels, sim_matrix)
     return loss
 
-def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env):
+def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, lr=0.001):
     optimizer = Adam(learning_rate=lr)
 
     for episode in range(episodes):
@@ -290,7 +291,10 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env):
         obs = env.reset()
         leader_pos = env.leaders[0]['position']
         follower_pos = env.followers[0]['position']
-        target_pos = np.argwhere(env.targets == env.TARGET)[0]
+
+        # Ensure there are targets in the environment
+        target_positions = np.argwhere(env.targets == env.TARGET)
+        target_pos = target_positions[0] if len(target_positions) > 0 else None
 
         total_reward = 0
         leader_path = [leader_pos]
@@ -299,13 +303,16 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env):
 
         for step in range(100):  # Limit the number of steps per episode
             # Leader generates a message and takes an action
-            leader_message = get_leader_message(leader_pos)
+            leader_message = get_leader_message(leader_pos, env)
             leader_message.append(-1)
             leader_message.append(-1)
             leader_action_probs = leader_model.predict(np.array(leader_message[:8]).reshape(1, -1))
             leader_action = list(ACTION_SPACE)[np.argmax(leader_action_probs)]
             leader_message[6], leader_message[7] = leader_action.value
-            new_leader_pos = env.step({0: leader_action.value})[1]['agent_positions'][0]
+
+            # Update leader position using the step method
+            _, _, _, _, info = env.step({0: leader_action.value})
+            new_leader_pos = info['agent_positions'][0]
 
             # Encode and decode the leader's message
             encoded_msg = encoded_model.predict(np.array(leader_message[:8]).reshape(1, -1))
@@ -314,39 +321,37 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env):
             # Follower takes an action based on the decoded message
             follower_action_probs = follower_model.predict(decoded_msg.reshape(1, -1))
             follower_action = list(ACTION_SPACE)[np.argmax(follower_action_probs)]
-            new_follower_pos = new_pos(follower_pos, follower_action)
+            new_follower_pos = new_pos(follower_pos, follower_action, env.agents)  # Pass the agents list
             print("follower")
 
             # Compute distance
-            distance = np.sqrt((new_leader_pos[0][0] - new_follower_pos[0][0])**2 + (new_leader_pos[0][1] - new_follower_pos[0][1])**2)
+            distance = np.sqrt((new_leader_pos[0] - new_follower_pos[0])**2 + (new_leader_pos[1] - new_follower_pos[1])**2)
 
-            x_l, y_l = new_leader_pos[0]
-            x_f, y_f = new_follower_pos[0]
+            x_l, y_l = new_leader_pos
+            x_f, y_f = new_follower_pos
 
             if distance > 2 or distance < 1:
                 print(f"Episode {episode+1}: Distance constraint violated (Distance: {distance:.2f}). Resetting...")
                 break
 
-            elif env[x_l, y_l] == OBSTACLE_HARD or env[x_f, y_f] == OBSTACLE_HARD:
+            elif env.obstacles[x_l, y_l] == OBSTACLE_HARD or env.obstacles[x_f, y_f] == OBSTACLE_HARD:
                 print(f"Episode {episode+1}: Hard obstacle constraint violated. Resetting...")
                 break
 
             # Update the path and position
-            env[follower_pos] = FREE
+            env.agents[env.agents.index({'position': follower_pos})]['position'] = new_follower_pos
             follower_pos = new_follower_pos
-            env[follower_pos] = FOLLOWER
-            follower_path.append(follower_pos.name)
+            follower_path.append(follower_pos)
 
-            env[leader_pos] = FREE
+            env.agents[env.agents.index({'position': leader_pos})]['position'] = new_leader_pos
             leader_pos = new_leader_pos
-            env[leader_pos] = LEADER
-            leader_path.append(leader_pos.name)
+            leader_path.append(leader_pos)
 
             # Compute reward
             reward -= 1
-            if env[x_l, y_l] == TARGET or env[x_f, y_f] == TARGET:
+            if env.targets[x_l, y_l] == TARGET or env.targets[x_f, y_f] == TARGET:
                 reward += 50
-            elif env[x_l, y_l] == OBSTACLE_SOFT or env[x_f, y_f] == OBSTACLE_SOFT:
+            elif env.obstacles[x_l, y_l] == OBSTACLE_SOFT or env.obstacles[x_f, y_f] == OBSTACLE_SOFT:
                 reward -= 10
 
             total_reward += reward
@@ -394,13 +399,12 @@ if __name__ == "main":
   follower_pos= np.argwhere(env == FOLLOWER)
   target_pos = np.argwhere(env == TARGET)
 
-  lr = 0.001
 
   print(leader_pos)
   print(follower_pos)
   print(target_pos)
 
-  train_MAPPO(2, leader_policy, follower_policy, encoder_decoder,leader_pos, target_pos, follower_pos,)
+  train_MAPPO(2, leader_policy, follower_policy, encoder_decoder,leader_pos, target_pos, follower_pos, lr=0.001)
 
   x,y = leader_pos[0]
   env[x,y]

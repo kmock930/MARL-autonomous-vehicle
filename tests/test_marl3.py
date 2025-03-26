@@ -5,7 +5,7 @@ import os
 PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(PATH)
 
-from marl_3 import SimpleGridEnv, ACTION_SPACE, new_pos, get_leader_message, build_encoder_decoder, build_policy_network, MAPPO, contrastive_loss
+from marl_3 import SimpleGridEnv, ACTION_SPACE, new_pos, get_leader_message, build_encoder_decoder, build_policy_network, MAPPO, contrastive_loss, train_MAPPO
 import numpy as np
 import tensorflow as tf
 
@@ -47,29 +47,30 @@ class TestMoveAgent(unittest.TestCase):
     def test_new_pos(self):
         # Move the agent to a new position
         agent_current_pos = self.env.agents[0]['position']
-        action = ACTION_SPACE.UP.value
+        action = ACTION_SPACE.UP
+        actionValue = action.value
         agents = self.env.agents
         newPos = new_pos(agent_current_pos, action, agents)
 
         # Check if the new position is valid
-        if not (0 <= agent_current_pos[0] + action[0] < self.env.env_configurations["rowSize"] and
-                0 <= agent_current_pos[1] + action[1] < self.env.env_configurations["colSize"]):
+        expected_new_pos = (agent_current_pos[0] + actionValue[0], agent_current_pos[1] + actionValue[1])
+        if not (0 <= expected_new_pos[0] < self.env.env_configurations["rowSize"] and
+                0 <= expected_new_pos[1] < self.env.env_configurations["colSize"]):
             # If the move is out of bounds, the position should remain the same
             print("Out of Bounds")
             self.assertEqual(newPos, agent_current_pos)
-        elif any(agent['position'] == (agent_current_pos[0] + action[0], agent_current_pos[1] + action[1]) for agent in agents):
+        elif any(agent['position'] == expected_new_pos for agent in agents):
             # If the move collides with another agent, the position should remain the same
             print("Agent Collision")
             self.assertEqual(newPos, agent_current_pos)
-        elif self.env.obstacles[agent_current_pos[0] + action[0], agent_current_pos[1] + action[1]] in [self.env.OBSTACLE_SOFT, self.env.OBSTACLE_HARD]:
+        elif self.env.obstacles[expected_new_pos[0], expected_new_pos[1]] in [self.env.OBSTACLE_SOFT, self.env.OBSTACLE_HARD]:
             # If the move collides with an obstacle, the position should remain the same
             print("Obstacle Collision")
-            # position will still be moved, just a penalty with game reset
-            self.assertEqual(newPos, (agent_current_pos[0] + action[0], agent_current_pos[1] + action[1]))
+            self.assertEqual(newPos, agent_current_pos)
         else:
             # Otherwise, the position should update correctly
             print("Valid Move")
-            self.assertEqual(newPos, (agent_current_pos[0] + action[0], agent_current_pos[1] + action[1]))
+            self.assertEqual(newPos, expected_new_pos)
 
     def test_get_leader_message(self):
         # Get the position of the leader agent
@@ -149,16 +150,29 @@ class TestMoveAgent(unittest.TestCase):
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
 
     def test_MAPPO_compute_loss(self):
+        # Generate dummy data for the test
+        state_leader = np.random.rand(1, 8).astype(np.float32)
+        decoded_msg = np.random.rand(1, 8).astype(np.float32)
+        action_leader = np.random.rand(1, len(ACTION_SPACE)).astype(np.float32)
+        action_follower = np.random.rand(1, len(ACTION_SPACE)).astype(np.float32)
+        reward = np.random.rand(1).astype(np.float32)
+        leader_message = np.random.rand(1, 8).astype(np.float32)
+        encoded_message = np.random.rand(1, 8).astype(np.float32)
+        decoded_message = np.random.rand(1, 8).astype(np.float32)
+
+        # Call compute_loss using the MAPPO object from setUp
         loss = self.mappo.compute_loss(
-            state_leader=np.random.rand(1, 8).astype(np.float32),
-            decoded_msg=np.random.rand(1, 8).astype(np.float32),
-            action_leader=np.random.rand(1, len(ACTION_SPACE)).astype(np.float32),
-            action_follower=np.random.rand(1, len(ACTION_SPACE)).astype(np.float32),
-            reward=np.random.rand(1).astype(np.float32),
-            leader_message=np.random.rand(1, 8).astype(np.float32),
-            encoded_message=np.random.rand(1, 8).astype(np.float32),
-            decoded_message=np.random.rand(1, 8).astype(np.float32),
+            state_leader=state_leader,
+            decoded_msg=decoded_msg,
+            action_leader=action_leader,
+            action_follower=action_follower,
+            reward=reward,
+            leader_message=leader_message,
+            encoded_message=encoded_message,
+            decoded_message=decoded_message
         )
+
+        # Assert the loss is a valid tensor
         self.assertIsInstance(loss, tf.Tensor)
         self.assertEqual(loss.dtype, tf.float32)
 
@@ -230,6 +244,30 @@ class TestMoveAgent(unittest.TestCase):
         self.assertIsInstance(loss, tf.Tensor)
         self.assertEqual(loss.dtype, tf.float32)
         self.assertGreaterEqual(loss.numpy(), 0.0, "Contrastive loss should be non-negative.")
+
+    def test_train_MAPPO(self):
+        env = SimpleGridEnv(
+            render_mode="rgb_array",
+            rowSize=10,
+            colSize=10,
+            num_soft_obstacles=10,
+            num_hard_obstacles=5,
+            num_robots=2,
+            tetherDist=2,
+            num_leaders=1,
+            num_target=1
+        )
+        train_MAPPO(
+            episodes=1,  # Minimal number of episodes
+            leader_model=self.mappo.leader_model,
+            follower_model=self.mappo.follower_model,
+            encoded_model=self.mappo.encoded_model,
+            env=env
+        )
+
+        # Assert that the environment reset and training completed
+        self.assertIsNotNone(env.agents, "Agents should be initialized.")
+        self.assertIsNotNone(env.targets, "Targets should be initialized.")
 
 if __name__ == '__main__':
     unittest.main()
