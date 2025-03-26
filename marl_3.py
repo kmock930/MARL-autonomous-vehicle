@@ -40,7 +40,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, Dense, LSTM
 from tensorflow.keras import layers
 from tensorflow.keras.optimizers import Adam
-from constants import ACTION_SPACE, REWARDS
+from constants import ACTION_SPACE
 # Import the Env
 import sys
 import os
