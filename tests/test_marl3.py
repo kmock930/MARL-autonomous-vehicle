@@ -5,8 +5,9 @@ import os
 PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(PATH)
 
-from marl_3 import SimpleGridEnv, ACTION_SPACE, new_pos
+from marl_3 import SimpleGridEnv, ACTION_SPACE, new_pos, get_leader_message, build_encoder_decoder
 import numpy as np
+import tensorflow as tf
 
 class TestMoveAgent(unittest.TestCase):
     def checkPosition(self, coord):
@@ -41,9 +42,65 @@ class TestMoveAgent(unittest.TestCase):
         action = ACTION_SPACE.UP.value
         agents = self.env.agents
         newPos = new_pos(agent_current_pos, action, agents)
-        self.checkPosition(newPos)
-        self.assertEqual(newPos, (agent_current_pos[0] + action[0], agent_current_pos[1] + action[1]))
 
+        # Check if the new position is valid
+        if not (0 <= agent_current_pos[0] + action[0] < self.env.env_configurations["rowSize"] and
+                0 <= agent_current_pos[1] + action[1] < self.env.env_configurations["colSize"]):
+            # If the move is out of bounds, the position should remain the same
+            print("Out of Bounds")
+            self.assertEqual(newPos, agent_current_pos)
+        elif any(agent['position'] == (agent_current_pos[0] + action[0], agent_current_pos[1] + action[1]) for agent in agents):
+            # If the move collides with another agent, the position should remain the same
+            print("Agent Collision")
+            self.assertEqual(newPos, agent_current_pos)
+        elif self.env.obstacles[agent_current_pos[0] + action[0], agent_current_pos[1] + action[1]] in [self.env.OBSTACLE_SOFT, self.env.OBSTACLE_HARD]:
+            # If the move collides with an obstacle, the position should remain the same
+            print("Obstacle Collision")
+            self.assertEqual(newPos, agent_current_pos)
+        else:
+            # Otherwise, the position should update correctly
+            print("Valid Move")
+            self.assertEqual(newPos, (agent_current_pos[0] + action[0], agent_current_pos[1] + action[1]))
+
+    def test_get_leader_message(self):
+        # Get the position of the leader agent
+        leader_pos = next(agent['position'] for agent in self.env.agents if agent.get('role') == 'leader')
+        self.checkPosition(leader_pos)
+
+        # Generate the leader message
+        message = get_leader_message(leader_pos, self.env)
+        print("LEADER MESSAGE: ", message)
+
+        # Check the structure of the message
+        self.assertIsInstance(message, list)
+        self.assertEqual(len(message), 6)  # Ensure the message has 6 elements
+        self.assertTrue(all(isinstance(value, (int, float)) for value in message[:5]))  # Check numeric values
+        self.assertIn(message[5], [0, 1])  # Ensure path_blocked is 0 or 1
+
+        # Additional checks for specific values
+        xg, yg, obs_dist, follower_visibility, follower_dist, path_blocked = message
+        if follower_visibility == 1:
+            self.assertGreaterEqual(follower_dist, 0)  # Ensure valid follower distance
+        if obs_dist != -1:
+            self.assertGreaterEqual(obs_dist, 0)  # Ensure valid obstacle distance
+
+    def test_build_encoder_decoder(self):
+        # Build the encoder-decoder model
+        model = build_encoder_decoder()
+
+        # Check if the model is an instance of tf.keras.Model
+        self.assertIsInstance(model, tf.keras.Model)
+
+        # Check the input and output shapes
+        input_shape = model.input_shape
+        output_shape = model.output_shape
+        self.assertEqual(input_shape, (None, 8))  # Input shape should match the expected input size
+        self.assertEqual(output_shape, (None, 8))  # Output shape should match the expected output size
+
+        # Test a forward pass with dummy data
+        dummy_input = np.random.rand(1, 8).astype(np.float32)
+        output = model.predict(dummy_input)
+        self.assertEqual(output.shape, (1, 8))  # Ensure the output shape matches the input shape
 
 if __name__ == '__main__':
     unittest.main()
