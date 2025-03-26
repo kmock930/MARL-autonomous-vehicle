@@ -5,7 +5,7 @@ import os
 PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(PATH)
 
-from marl_3 import SimpleGridEnv, ACTION_SPACE, new_pos, get_leader_message, build_encoder_decoder
+from marl_3 import SimpleGridEnv, ACTION_SPACE, new_pos, get_leader_message, build_encoder_decoder, build_policy_network
 import numpy as np
 import tensorflow as tf
 
@@ -97,10 +97,41 @@ class TestMoveAgent(unittest.TestCase):
         self.assertEqual(input_shape, (None, 8))  # Input shape should match the expected input size
         self.assertEqual(output_shape, (None, 8))  # Output shape should match the expected output size
 
+        # Check the activation function of the output layer
+        output_activation = model.layers[-1].activation.__name__
+        self.assertEqual(output_activation, "linear")  # Ensure the output layer uses linear activation
+
         # Test a forward pass with dummy data
         dummy_input = np.random.rand(1, 8).astype(np.float32)
         output = model.predict(dummy_input)
         self.assertEqual(output.shape, (1, 8))  # Ensure the output shape matches the input shape
+
+    def test_build_policy_network(self):
+        # Build the policy network model
+        model = build_policy_network()
+
+        # Check if the model is an instance of tf.keras.Model
+        self.assertIsInstance(model, tf.keras.Model)
+
+        # Check the input and output shapes
+        input_shape = model.input_shape
+        output_shape = model.output_shape
+        self.assertEqual(input_shape, (None, 8))  # Input shape should match the expected input size
+        self.assertEqual(output_shape, (None, len(ACTION_SPACE)))  # Output shape should match the number of actions
+
+        # Check the activation function of the output layer
+        output_activation = model.layers[-1].activation.__name__
+        self.assertEqual(output_activation, "softmax")  # Ensure the output layer uses softmax activation
+
+        # Check the activation functions of the hidden layers
+        hidden_activations = [layer.activation.__name__ for layer in model.layers if hasattr(layer, 'activation') and layer.activation]
+        for activation in hidden_activations[:-1]:  # Exclude the output layer
+            self.assertIn(activation, ["relu", "tanh", "sigmoid"])  # Ensure hidden layers use valid activation functions
+
+        # Test a forward pass with dummy data
+        dummy_input = np.random.rand(1, 8).astype(np.float32)
+        output = model.predict(dummy_input)
+        self.assertEqual(output.shape, (1, len(ACTION_SPACE)))  # Ensure the output shape matches the expected output size
 
 if __name__ == '__main__':
     unittest.main()
