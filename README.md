@@ -49,5 +49,9 @@ Example:
 
 `Step: 5, Agent Position: (2, 3), Reward: -1, Done: False, Action: (1, 0)`
 
-## Visual Representation for debugging
+### Visual Representation for debugging
 ![alt text](<env_human_render.jpg>)
+
+### Algorithms
+#### Leader's Message
+[-1, -1, np.float64(2.0), 1, np.float64(1.4142135623730951), 0]
