@@ -145,7 +145,7 @@ def get_leader_message(pos: tuple[int, int], env: SimpleGridEnv):
         # - Relative position of the goal (yg): int, -1 if goal is not in partial observability.
         # - Whether the path is clear or blocked(path_blocked): 0/1 int
         # - Leader's action (action): int
-        # - Leader can observe the follower or not (follower_visibility): bool or 0/1 int
+        # - Leader can observe the follower or not (follower_visibility): 0/1 int
         # - Leaders distance to follower (follower_dist): float
 
     Author:
@@ -224,27 +224,35 @@ class MAPPO:
         # Compute Advantage (A = R + γV(s') - V(s))
         value = self.leader_model(state_leader.reshape(1, -1))[0, 0]  # Predicted value
         advantage = reward - value  # TD error as Advantage Estimate
-        print("loss")
+        print("loss", advantage)
 
         # Policy Gradient Loss (A2C)
         action_prob_leader = self.leader_model(state_leader.reshape(1, -1))
         action_prob_follower = self.follower_model(decoded_msg.reshape(1, -1))
         policy_loss = -tf.reduce_mean(advantage * tf.math.log(action_prob_leader + 1e-8))
-        print('Policy Gradient Loss')
+        print('Policy Gradient Loss', policy_loss)
         # Contrastive Loss (CACL) for Communication Alignment
         contrastive_loss_value = contrastive_loss(tf.convert_to_tensor([encoded_message]), positive_pairs=[0])
 
-        print('Contrastive Loss')
+        print('Contrastive Loss', contrastive_loss_value)
         # Message Reconstruction Loss (L_recon)
         print(f'leader_message={leader_message}')
         print(f'decoded_message= {decoded_message}')
-        reconstruction_loss = tf.reduce_mean(tf.keras.losses.MSE(leader_message, decoded_message))
-        print('Entropy')
+        
+        # Align shapes of leader_message and decoded_message
+        min_dim = min(leader_message.shape[-1], decoded_message.shape[-1])
+        leader_message_aligned = leader_message[..., :min_dim]
+        decoded_message_aligned = decoded_message[..., :min_dim]
+        
+        reconstruction_loss = tf.reduce_mean(tf.keras.losses.MSE(leader_message_aligned, decoded_message_aligned))
+        print('Reconstruction Loss', reconstruction_loss)
         # Entropy Bonus for Exploration
         entropy_bonus = -tf.reduce_mean(action_prob_leader * tf.math.log(action_prob_leader + 1e-8))
+        print('Entropy Bonus', entropy_bonus)
 
         # Final loss function
         total_loss = policy_loss + 0.01 * entropy_bonus + 0.5 * contrastive_loss_value + 0.2 * reconstruction_loss
+        print('Total Loss', total_loss)
 
         return total_loss
 

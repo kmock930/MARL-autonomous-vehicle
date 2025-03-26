@@ -5,7 +5,7 @@ import os
 PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(PATH)
 
-from marl_3 import SimpleGridEnv, ACTION_SPACE, new_pos, get_leader_message, build_encoder_decoder, build_policy_network
+from marl_3 import SimpleGridEnv, ACTION_SPACE, new_pos, get_leader_message, build_encoder_decoder, build_policy_network, MAPPO
 import numpy as np
 import tensorflow as tf
 
@@ -31,6 +31,14 @@ class TestMoveAgent(unittest.TestCase):
             num_target=1
         )
         self.env.reset()
+
+        # Create MAPPO object
+        self.mappo = MAPPO(
+            leader_model=build_policy_network(),
+            follower_model=build_policy_network(),
+            encoded_model=build_encoder_decoder()
+        )
+        self.assertIsInstance(self.mappo, MAPPO)
     
     def test_agents_list(self):
         self.agent_position = self.env.agents[0]['position']  # Use the first agent's position
@@ -56,7 +64,8 @@ class TestMoveAgent(unittest.TestCase):
         elif self.env.obstacles[agent_current_pos[0] + action[0], agent_current_pos[1] + action[1]] in [self.env.OBSTACLE_SOFT, self.env.OBSTACLE_HARD]:
             # If the move collides with an obstacle, the position should remain the same
             print("Obstacle Collision")
-            self.assertEqual(newPos, agent_current_pos)
+            # position will still be moved, just a penalty with game reset
+            self.assertEqual(newPos, (agent_current_pos[0] + action[0], agent_current_pos[1] + action[1]))
         else:
             # Otherwise, the position should update correctly
             print("Valid Move")
@@ -132,6 +141,26 @@ class TestMoveAgent(unittest.TestCase):
         dummy_input = np.random.rand(1, 8).astype(np.float32)
         output = model.predict(dummy_input)
         self.assertEqual(output.shape, (1, len(ACTION_SPACE)))  # Ensure the output shape matches the expected output size
+
+    def test_MAPPO_init(self):
+        self.assertIsInstance(self.mappo.leader_model, tf.keras.Model)
+        self.assertIsInstance(self.mappo.follower_model, tf.keras.Model)
+        self.assertIsInstance(self.mappo.encoded_model, tf.keras.Model)
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+
+    def test_compute_loss(self):
+        loss = self.mappo.compute_loss(
+            state_leader=np.random.rand(1, 8).astype(np.float32),
+            decoded_msg=np.random.rand(1, 8).astype(np.float32),
+            action_leader=np.random.rand(1, len(ACTION_SPACE)).astype(np.float32),
+            action_follower=np.random.rand(1, len(ACTION_SPACE)).astype(np.float32),
+            reward=np.random.rand(1).astype(np.float32),
+            leader_message=np.random.rand(1, 8).astype(np.float32),
+            encoded_message=np.random.rand(1, 8).astype(np.float32),
+            decoded_message=np.random.rand(1, 8).astype(np.float32),
+        )
+        self.assertIsInstance(loss, tf.Tensor)
+        self.assertEqual(loss.dtype, tf.float32)
 
 if __name__ == '__main__':
     unittest.main()
