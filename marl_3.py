@@ -203,8 +203,10 @@ encoder_decoder = build_encoder_decoder()
 # MLP MAPPO
 def build_policy_network():
     input_layer = Input(shape=(8,))
+    # hidden layers
     x = Dense(64, activation="relu")(input_layer)
     x = Dense(64, activation="relu")(x)
+    # output layer
     output_layer = Dense(len(ACTION_SPACE), activation="softmax")(x)
     return Model(input_layer, output_layer)
 
