@@ -61,7 +61,7 @@ FOLLOWER = "follower"
 
 # Initialize the environment
 env = SimpleGridEnv(
-    render_mode=None,
+    render_mode="rgb_array", # numpy array representation
     rowSize=10,
     colSize=10,
     num_soft_obstacles=10,
@@ -257,9 +257,18 @@ class MAPPO:
         return total_loss
 
 
-    def apply_gradients(self, state_leader, decoded_msg, action_leader, action_follower, reward):
+    def apply_gradients(self, state_leader, decoded_msg, action_leader, action_follower, reward, leader_message, encoded_message, decoded_message):
         with tf.GradientTape() as tape:
-            loss = self.compute_loss(state_leader, decoded_msg, action_leader, action_follower, reward)
+            loss = self.compute_loss(
+                state_leader=state_leader,
+                decoded_msg=decoded_msg,
+                action_leader=action_leader,
+                action_follower=action_follower,
+                reward=reward,
+                leader_message=leader_message,
+                encoded_message=encoded_message,
+                decoded_message=decoded_message
+            )
         grads = tape.gradient(loss, self.leader_model.trainable_variables + self.follower_model.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.leader_model.trainable_variables + self.follower_model.trainable_variables))
 
@@ -272,19 +281,6 @@ def contrastive_loss(messages, positive_pairs, temperature=0.1):
     labels = tf.one_hot(positive_pairs, depth=len(messages))
     loss = tf.keras.losses.CategoricalCrossentropy(from_logits=True)(labels, sim_matrix)
     return loss
-
-# Initialize the environment
-env = SimpleGridEnv(
-    render_mode=None,
-    rowSize=10,
-    colSize=10,
-    num_soft_obstacles=10,
-    num_hard_obstacles=5,
-    num_robots=2,
-    tetherDist=2,
-    num_leaders=1,
-    num_target=1
-)
 
 def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env):
     optimizer = Adam(learning_rate=lr)

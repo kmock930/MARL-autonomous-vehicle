@@ -5,7 +5,7 @@ import os
 PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(PATH)
 
-from marl_3 import SimpleGridEnv, ACTION_SPACE, new_pos, get_leader_message, build_encoder_decoder, build_policy_network, MAPPO
+from marl_3 import SimpleGridEnv, ACTION_SPACE, new_pos, get_leader_message, build_encoder_decoder, build_policy_network, MAPPO, contrastive_loss
 import numpy as np
 import tensorflow as tf
 
@@ -148,7 +148,7 @@ class TestMoveAgent(unittest.TestCase):
         self.assertIsInstance(self.mappo.encoded_model, tf.keras.Model)
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
 
-    def test_compute_loss(self):
+    def test_MAPPO_compute_loss(self):
         loss = self.mappo.compute_loss(
             state_leader=np.random.rand(1, 8).astype(np.float32),
             decoded_msg=np.random.rand(1, 8).astype(np.float32),
@@ -161,6 +161,75 @@ class TestMoveAgent(unittest.TestCase):
         )
         self.assertIsInstance(loss, tf.Tensor)
         self.assertEqual(loss.dtype, tf.float32)
+
+    def test_MAPPO_apply_gradient(self):
+        # Generate dummy data for the test
+        state_leader = np.random.rand(1, 8).astype(np.float32)
+        decoded_msg = np.random.rand(1, 8).astype(np.float32)
+        action_leader = np.random.rand(1, len(ACTION_SPACE)).astype(np.float32)
+        action_follower = np.random.rand(1, len(ACTION_SPACE)).astype(np.float32)
+        reward = np.random.rand(1).astype(np.float32)
+        leader_message = np.random.rand(1, 8).astype(np.float32)
+        encoded_message = np.random.rand(1, 8).astype(np.float32)
+        decoded_message = np.random.rand(1, 8).astype(np.float32)
+
+        # Call the apply_gradients function
+        self.mappo.apply_gradients(
+            state_leader=state_leader,
+            decoded_msg=decoded_msg,
+            action_leader=action_leader,
+            action_follower=action_follower,
+            reward=reward,
+            leader_message=leader_message,
+            encoded_message=encoded_message,
+            decoded_message=decoded_message
+        )
+
+        # Assert that the leader model weights are updated
+        leader_weights_before = [tf.identity(w) for w in self.mappo.leader_model.trainable_variables]
+        self.mappo.apply_gradients(
+            state_leader=state_leader,
+            decoded_msg=decoded_msg,
+            action_leader=action_leader,
+            action_follower=action_follower,
+            reward=reward,
+            leader_message=leader_message,
+            encoded_message=encoded_message,
+            decoded_message=decoded_message
+        )
+        leader_weights_after = self.mappo.leader_model.trainable_variables
+        for before, after in zip(leader_weights_before, leader_weights_after):
+            self.assertFalse(np.array_equal(before.numpy(), after.numpy()), "Leader model weights did not update.")
+
+        # Assert that the follower model weights are updated
+        follower_weights_before = [tf.identity(w) for w in self.mappo.follower_model.trainable_variables]
+        self.mappo.apply_gradients(
+            state_leader=state_leader,
+            decoded_msg=decoded_msg,
+            action_leader=action_leader,
+            action_follower=action_follower,
+            reward=reward,
+            leader_message=leader_message,
+            encoded_message=encoded_message,
+            decoded_message=decoded_message
+        )
+        follower_weights_after = self.mappo.follower_model.trainable_variables
+        for before, after in zip(follower_weights_before, follower_weights_after):
+            self.assertTrue(np.array_equal(before.numpy(), after.numpy()), "Follower model weights did not update.")
+
+    def test_contrastive_loss(self):
+        # Generate dummy data for the test
+        messages = np.random.rand(5, 8).astype(np.float32)  # 5 messages with 8 dimensions each
+        positive_pairs = [0, 1, 2, 3, 4]  # Positive pairs for contrastive loss
+        temperature = 0.1  # Temperature parameter for contrastive loss
+
+        # Call the contrastive_loss function
+        loss = contrastive_loss(messages, positive_pairs, temperature)
+
+        # Assert the loss is a valid tensor
+        self.assertIsInstance(loss, tf.Tensor)
+        self.assertEqual(loss.dtype, tf.float32)
+        self.assertGreaterEqual(loss.numpy(), 0.0, "Contrastive loss should be non-negative.")
 
 if __name__ == '__main__':
     unittest.main()
