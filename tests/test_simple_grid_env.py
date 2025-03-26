@@ -4,7 +4,6 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 SIMPLEGRID_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'gym-simplegrid', 'gym_simplegrid', 'envs'))
-print(SIMPLEGRID_PATH)
 sys.path.append(SIMPLEGRID_PATH)
 from simple_grid import SimpleGridEnv
 
