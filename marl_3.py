@@ -83,7 +83,7 @@ def new_pos(agent_position: tuple[int, int], action: ACTION_SPACE, agents: list[
     if not (0 <= new_pos[0] < env.env_configurations["rowSize"] and 0 <= new_pos[1] < env.env_configurations["colSize"]):
         return agent_position # Stay
 
-    # Check if the new position is occupied by another agent or obstacle
+    # Check if the new position is occupied by another agent
     for agent in agents:
         if agent["position"] == new_pos:
             return agent_position  # Stay
@@ -339,11 +339,17 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, lr=0
                 break
 
             # Update the path and position
-            env.agents[env.agents.index({'position': follower_pos})]['position'] = new_follower_pos
+            for agent in env.agents:
+                if agent['position'] == follower_pos:
+                    agent['position'] = new_follower_pos
+                    break
             follower_pos = new_follower_pos
             follower_path.append(follower_pos)
 
-            env.agents[env.agents.index({'position': leader_pos})]['position'] = new_leader_pos
+            for agent in env.agents:
+                if agent['position'] == leader_pos:
+                    agent['position'] = new_leader_pos
+                    break
             leader_pos = new_leader_pos
             leader_path.append(leader_pos)
 
