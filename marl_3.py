@@ -59,6 +59,19 @@ TARGET: int = 4
 LEADER = "leader"
 FOLLOWER = "follower"
 
+# Initialize the environment
+env = SimpleGridEnv(
+    render_mode=None,
+    rowSize=10,
+    colSize=10,
+    num_soft_obstacles=10,
+    num_hard_obstacles=5,
+    num_robots=2,
+    tetherDist=2,
+    num_leaders=1,
+    num_target=1
+)
+
 # Modify the `new_pos` function to check roles using the Agent class
 def new_pos(agent_position: tuple[int, int], action: ACTION_SPACE, agents: list[Agent]):
     x, y = agent_position
@@ -109,69 +122,70 @@ def new_pos(agent_position: tuple[int, int], action: ACTION_SPACE, agents: list[
 
 
 
-"""# Message structure :
-
-# - Distance to the nearest obstacle (obs_dist): int or float
-# - Relative position of the goal (xg): int, -1 if goal is not in partial observability.
-# - Relative position of the goal (yg): int, -1 if goal is not in partial observability.
-# - Whether the path is clear or blocked(path_blocked): 0/1 int
-# - Leader's action (action): int
-# - Leader can observe the follower or not (follower_visibility): bool or 0/1 int
-# - Leaders distance to follower (follower_dist): float
-
-"""
-
 # - Suggested movement: e.g., (0,0) if leader suggests follower to stay or (0,-1) if suggested going left. Not the coordinates here!
 # - Urgency level: int ranging between 1-5, the lower the more urgent.
 
 from ast import IsNot
 #window: 3X3
-def get_leader_message(pos):
-  # message = []
-  follower_visibility = 0 #leader cannot observe it
-  follower_dist, obs_dist, counter = -1,-1, 0
-  obstacles_pos, distances = [],[]
-  path_blocked = 0 #not blocked
-  x,y = pos[0]
-  xg,yg = (-1,-1)
+def get_leader_message(pos: tuple[int, int], env: SimpleGridEnv):
+    """
+    Generate a message from the leader agent based on its position and the environment.
 
+    Args:
+        pos (tuple[int, int]): The position of the leader agent.
+        env (SimpleGridEnv): The environment instance.
 
-  for dx in range(-2, 2):
-      for dy in range(-2, 2):
+    Returns:
+        list: A message containing information about the environment around the leader.
+        
+        # Message structure :
+
+        # - Distance to the nearest obstacle (obs_dist): int or float
+        # - Relative position of the goal (xg): int, -1 if goal is not in partial observability.
+        # - Relative position of the goal (yg): int, -1 if goal is not in partial observability.
+        # - Whether the path is clear or blocked(path_blocked): 0/1 int
+        # - Leader's action (action): int
+        # - Leader can observe the follower or not (follower_visibility): bool or 0/1 int
+        # - Leaders distance to follower (follower_dist): float
+
+    Author:
+        Kimia
+    """
+    x, y = pos  # Unpack the position
+    follower_visibility = 0  # Leader cannot observe the follower initially
+    follower_dist, obs_dist, counter = -1, -1, 0
+    obstacles_pos, distances = [], []
+    path_blocked = 0  # Path is not blocked initially
+    xg, yg = (-1, -1)  # Default goal position
+
+    for dx in range(-2, 3):
+        for dy in range(-2, 3):
             nx, ny = x + dx, y + dy
-            if 0 <= nx < 10 and 0 <= ny < 10:
+            if 0 <= nx < env.env_configurations["rowSize"] and 0 <= ny < env.env_configurations["colSize"]:
                 counter += 1
-                #relative position to the goal
-                if env[nx, ny] == TARGET:
-                  xg,yg = nx, ny
-                  # action = ACTION_SPACE((xg-x, yg-y))
+                # Ensure targets array has the correct dimensions
+                if env.targets.shape == (env.env_configurations["rowSize"], env.env_configurations["colSize"]):
+                    # Relative position to the goal
+                    if env.targets[nx, ny] == env.TARGET:
+                        xg, yg = nx, ny
 
-                #leader can see follower
-                if env[nx,ny] == FOLLOWER:
-                  follower_visibility = 1
-                  follower_dist = np.sqrt((x - nx)**2 + (y - ny)**2)
+                # Leader can see follower
+                if any(agent['position'] == (nx, ny) and agent.get('role') == 'follower' for agent in env.agents):
+                    follower_visibility = 1
+                    follower_dist = np.sqrt((x - nx) ** 2 + (y - ny) ** 2)
 
-                #nearest obstacle
-                if env[nx, ny] in [OBSTACLE_SOFT, OBSTACLE_HARD]:
-                    obstacles_pos.append(nx,ny)
-                    dist = np.sqrt((x - nx)**2 + (y - ny)**2)
+                # Nearest obstacle
+                if env.obstacles[nx, ny] in [env.OBSTACLE_SOFT, env.OBSTACLE_HARD]:
+                    obstacles_pos.append((nx, ny))
+                    dist = np.sqrt((x - nx) ** 2 + (y - ny) ** 2)
                     distances.append(dist)
 
-  if len(distances) > 0:
-    obs_dist = min(distances)
-  if len(obstacles_pos) == counter:
-      path_blocked = 1
-  # if action == ACTION_SPACE.STAY.value:
-  #   if len(obstacles_pos) == counter:
-  #     path_blocked = 1
-    # else:
-    #   while action in obstacles_pos or env[action] == 3:
-    #     random_actions = random.sample(list(ACTION_SPACE.value), 1)[0]
-    #     if  0 <= x+random_actions.value[0] < 10 and  0 <= y+random_actions.value[1] < 10:
-    #         action = random_actions
+    if len(distances) > 0:
+        obs_dist = min(distances)
+    if len(obstacles_pos) == counter:
+        path_blocked = 1
 
-
-  return [xg, yg, obs_dist, follower_visibility, follower_dist, path_blocked]
+    return [xg, yg, obs_dist, follower_visibility, follower_dist, path_blocked]
 
 # LSTM
 from tensorflow.keras.layers import Reshape
