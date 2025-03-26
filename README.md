@@ -54,4 +54,12 @@ Example:
 
 ### Algorithms
 #### Leader's Message
+- Distance to the nearest obstacle (obs_dist): int or float
+- Relative position of the goal (xg): int, -1 if goal is not in partial observability.
+- Relative position of the goal (yg): int, -1 if goal is not in partial observability.
+- Whether the path is clear or blocked(path_blocked): 0/1 int
+- Leader's action (action): int
+- Leader can observe the follower or not (follower_visibility): 0/1 int
+- Leaders distance to follower (follower_dist): float
+- Sample: 
 [-1, -1, np.float64(2.0), 1, np.float64(1.4142135623730951), 0]
