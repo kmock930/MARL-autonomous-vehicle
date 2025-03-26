@@ -286,6 +286,7 @@ def contrastive_loss(messages, positive_pairs, temperature=0.1):
 def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, lr=0.001):
     optimizer = Adam(learning_rate=lr)
 
+    episodes = episodes if (episodes is not None or episodes > 0) else 100
     for episode in range(episodes):
         # Reset the environment
         obs = env.reset()
