@@ -339,12 +339,18 @@ class SimpleGridEnv(Env):
         if reset_required:
             self.reset()
             self.render()
-            return self.get_obs(), self.cumulative_reward, True, False, self.get_info()
+            return self.get_obs(), self.cumulative_reward, True, False, {
+                **self.get_info(),
+                'agent_positions': {agent_id: agent['position'] for agent_id, agent in enumerate(self.agents)}
+            }
 
         # if self.render_mode == "human":
         self.render()
 
-        return self.get_obs(), total_reward, self.done, False, self.get_info()
+        return self.get_obs(), total_reward, self.done, False, {
+            **self.get_info(),
+            'agent_positions': {agent_id: agent['position'] for agent_id, agent in enumerate(self.agents)}
+        }
 
     def parse_obstacle_map(self, obstacle_map) -> np.ndarray:
         """
