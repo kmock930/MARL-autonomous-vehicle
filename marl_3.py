@@ -40,7 +40,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, Dense, LSTM
 from tensorflow.keras import layers
 from tensorflow.keras.optimizers import Adam
-from constants import ACTION_SPACE
+from constants import ACTION_SPACE, REWARDS
 # Import the Env
 import sys
 import os
@@ -222,6 +222,10 @@ class MAPPO:
         self.optimizer = Adam(learning_rate=lr)
 
     def compute_loss(self, state_leader, decoded_msg, action_leader, action_follower, reward, leader_message, encoded_message, decoded_message):
+        # Convert leader_message and decoded_message to NumPy arrays
+        leader_message = np.array(leader_message)
+        decoded_message = np.array(decoded_message)
+
         # Compute Advantage (A = R + γV(s') - V(s))
         value = self.leader_model(state_leader.reshape(1, -1))[0, 0]  # Predicted value
         advantage = reward - value  # TD error as Advantage Estimate
@@ -232,21 +236,23 @@ class MAPPO:
         action_prob_follower = self.follower_model(decoded_msg.reshape(1, -1))
         policy_loss = -tf.reduce_mean(advantage * tf.math.log(action_prob_leader + 1e-8))
         print('Policy Gradient Loss', policy_loss)
+        
         # Contrastive Loss (CACL) for Communication Alignment
         contrastive_loss_value = contrastive_loss(tf.convert_to_tensor([encoded_message]), positive_pairs=[0])
-
         print('Contrastive Loss', contrastive_loss_value)
+
         # Message Reconstruction Loss (L_recon)
         print(f'leader_message={leader_message}')
         print(f'decoded_message= {decoded_message}')
-        
+
         # Align shapes of leader_message and decoded_message
         min_dim = min(leader_message.shape[-1], decoded_message.shape[-1])
         leader_message_aligned = leader_message[..., :min_dim]
         decoded_message_aligned = decoded_message[..., :min_dim]
-        
+
         reconstruction_loss = tf.reduce_mean(tf.keras.losses.MSE(leader_message_aligned, decoded_message_aligned))
         print('Reconstruction Loss', reconstruction_loss)
+
         # Entropy Bonus for Exploration
         entropy_bonus = -tf.reduce_mean(action_prob_leader * tf.math.log(action_prob_leader + 1e-8))
         print('Entropy Bonus', entropy_bonus)
@@ -302,6 +308,7 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, lr=0
         follower_path = [follower_pos]
         episode_reset = False
 
+        reward = 0
         for step in range(100):  # Limit the number of steps per episode
             # Leader generates a message and takes an action
             leader_message = get_leader_message(leader_pos, env)
@@ -356,10 +363,20 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, lr=0
 
             # Compute reward
             reward -= 1
-            if env.targets[x_l, y_l] == TARGET or env.targets[x_f, y_f] == TARGET:
-                reward += 50
-            elif env.obstacles[x_l, y_l] == OBSTACLE_SOFT or env.obstacles[x_f, y_f] == OBSTACLE_SOFT:
-                reward -= 10
+            if (0 <= x_l < env.targets.shape[0] and 0 <= y_l < env.targets.shape[1] and env.targets[x_l, y_l] == TARGET) or \
+               (0 <= x_f < env.targets.shape[0] and 0 <= y_f < env.targets.shape[1] and env.targets[x_f, y_f] == TARGET):
+                reward += REWARDS.TARGET.value
+            elif (0 <= x_l < env.obstacles.shape[0] and 0 <= y_l < env.obstacles.shape[1] and env.obstacles[x_l, y_l] == OBSTACLE_SOFT) or \
+                 (0 <= x_f < env.obstacles.shape[0] and 0 <= y_f < env.obstacles.shape[1] and env.obstacles[x_f, y_f] == OBSTACLE_SOFT):
+                reward += REWARDS.SOFT_OBSTACLE.value
+            elif not (0 <= x_l < env.obstacles.shape[0] and 0 <= y_l < env.obstacles.shape[1]) or \
+                 not (0 <= x_f < env.obstacles.shape[0] and 0 <= y_f < env.obstacles.shape[1]):
+                reward += REWARDS.WALL.value  # Penalty for out-of-bound situations
+            elif env.obstacles[x_l, y_l] == OBSTACLE_HARD or env.obstacles[x_f, y_f] == OBSTACLE_HARD:
+                reward += REWARDS.HARD_OBSTACLE.value  # Penalty for crashing into hard obstacles
+            elif any(agent['position'] == new_leader_pos for agent in env.agents if agent['position'] != leader_pos) or \
+                 any(agent['position'] == new_follower_pos for agent in env.agents if agent['position'] != follower_pos):
+                reward += REWARDS.CRASH.value  # Penalty for crashing onto another agent
 
             total_reward += reward
 

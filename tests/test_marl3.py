@@ -8,6 +8,7 @@ sys.path.append(PATH)
 from marl_3 import SimpleGridEnv, ACTION_SPACE, new_pos, get_leader_message, build_encoder_decoder, build_policy_network, MAPPO, contrastive_loss, train_MAPPO
 import numpy as np
 import tensorflow as tf
+from constants import ACTION_SPACE
 
 class TestMoveAgent(unittest.TestCase):
     def checkPosition(self, coord):
@@ -269,5 +270,84 @@ class TestMoveAgent(unittest.TestCase):
         self.assertIsNotNone(env.agents, "Agents should be initialized.")
         self.assertIsNotNone(env.targets, "Targets should be initialized.")
 
+    def test_predict_results(self):
+        env = SimpleGridEnv(
+            render_mode="rgb_array",
+            rowSize=10,
+            colSize=10,
+            num_soft_obstacles=10,
+            num_hard_obstacles=5,
+            num_robots=2,
+            tetherDist=2,
+            num_leaders=1,
+            num_target=1
+        )
+        train_MAPPO(
+            episodes=1,  # Minimal number of episodes
+            leader_model=self.mappo.leader_model,
+            follower_model=self.mappo.follower_model,
+            encoded_model=self.mappo.encoded_model,
+            env=env
+        )
+
+        print("LEADER MODEL SUMMARY:")
+        print(self.mappo.leader_model.summary())
+        print("FOLLOWER MODEL SUMMARY:")
+        print(self.mappo.follower_model.summary())
+
+        # Convert agent positions to NumPy arrays and pad to match the expected input shape
+        leader_position = np.array(env.agents[0]['position']).reshape(1, -1)
+        leader_position_padded = np.pad(leader_position, ((0, 0), (0, 6)), mode='constant')  # Pad to shape (1, 8)
+
+        follower_position = np.array(env.agents[1]['position']).reshape(1, -1)
+        follower_position_padded = np.pad(follower_position, ((0, 0), (0, 6)), mode='constant')  # Pad to shape (1, 8)
+
+        leaderModel_pred = self.mappo.leader_model.predict(leader_position_padded)  # Output: numpy array with probabilities
+        followerModel_pred = self.mappo.follower_model.predict(follower_position_padded)  # Output: numpy array with probabilities
+        self.assertIsInstance(leaderModel_pred, np.ndarray)
+        self.assertIsInstance(followerModel_pred, np.ndarray)
+        self.assertEqual(leaderModel_pred.shape[1], len(ACTION_SPACE))
+
+        print("POLICY NETWORK SUMMARY:")
+        self.mappo.encoded_model.summary()
+
+        # Obtain the action with the highest probability for both leader and follower
+        leader_action_index = np.argmax(leaderModel_pred, axis=1)  # Index of the highest probability
+        follower_action_index = np.argmax(followerModel_pred, axis=1)  # Index of the highest probability
+
+        leader_action = list(ACTION_SPACE)[leader_action_index[0]]  # Enum
+        follower_action = list(ACTION_SPACE)[follower_action_index[0]]  # Enum
+
+        print("LEADER ACTION: ", leader_action, " ", leader_action.value)
+        print("FOLLOWER ACTION: ", follower_action, " ", follower_action.value)
+        self.assertIsInstance(leader_action, ACTION_SPACE)
+        self.assertIsInstance(follower_action, ACTION_SPACE)
+        self.assertIsInstance(leader_action.value, tuple)
+        self.assertIsInstance(follower_action.value, tuple)
+        for val in leader_action.value:
+            self.assertIsInstance(val, int)
+        for val in follower_action.value:
+            self.assertIsInstance(val, int)
+        
+        # POLICY NETWORK PREDICTION
+        # Step 1: Create dummy leader message (simulate message structure)
+        dummy_leader_message = np.random.rand(1, 8).astype(np.float32)
+
+        # Step 2: Pass through encoder-decoder model (communication channel)
+        encoded_output = self.mappo.encoded_model.predict(dummy_leader_message)
+
+        # Step 3: Feed the encoded output to follower's policy network
+        action_probs = self.mappo.follower_model.predict(encoded_output)
+
+        # Step 4: Assert that the output is valid and action probabilities sum to ~1
+        self.assertEqual(action_probs.shape, (1, len(ACTION_SPACE)))
+        self.assertAlmostEqual(np.sum(action_probs), 1.0, places=3)
+
+        print("Encoded Msg:", encoded_output)
+        print("Follower Policy Output:", action_probs)
+
+    def tearDown(self):
+        if hasattr(self, 'env') and self.env is not None:
+            self.env.close()
 if __name__ == '__main__':
     unittest.main()
