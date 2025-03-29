@@ -190,7 +190,7 @@ class SimpleGridEnv(Env):
             self, 
             seed: int | None = None, 
             options: dict = dict()
-        ) -> tuple:
+        ) -> dict:
         """
         Reset the environment.
 

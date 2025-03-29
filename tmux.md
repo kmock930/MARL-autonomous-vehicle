@@ -18,3 +18,6 @@ This project involves long processes and as a result, **tmux** becomes a handy t
 3. To kill a tmux session: `tmux kill-session`.
 
 4) To kill a tmux server: `tmux kill-server`.
+
+## Observe Real-Time Logs from an External File
+Run this command: `python pipeline.py > train.log 2>&1`
