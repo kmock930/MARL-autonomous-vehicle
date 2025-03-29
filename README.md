@@ -63,3 +63,42 @@ Example:
 - Leaders distance to follower (follower_dist): float
 - Sample: 
 [-1, -1, np.float64(2.0), 1, np.float64(1.4142135623730951), 0]
+#### Leader-Follower (encoder-decoder) Model
+
+| Layer (type)       | Output Shape | Param # |
+|---------------------|--------------|---------|
+| input_layer_4       | (None, 8)    | 0       |
+| dense_10 (Dense)    | (None, 64)   | 576     |
+| dense_11 (Dense)    | (None, 64)   | 4,160   |
+| dense_12 (Dense)    | (None, 9)    | 585     |
+
+ * Total params: 5,321 (20.79 KB)
+ * Trainable params: 5,321 (20.79 KB)
+ * Non-trainable params: 0 (0.00 B)
+ * Prediction: Outputs an array of 9 values, representing the probabilities of each possible action. 
+
+ #### Policy Network Model
+ * Evaluates the best move for an agent.
+
+| Layer (type)           | Output Shape | Param #  |
+|-------------------------|--------------|----------|
+| input_layer_5          | (None, 8)    | 0        |
+| reshape_1              | (None, 1, 8) | 0        |
+| lstm_2 (LSTM)          | (None, 1, 64)| 18,688   |
+| lstm_3 (LSTM)          | (None, 32)   | 12,416   |
+| dense_13 (Dense)       | (None, 8)    | 264      |
+
+ * Total params: 31,368 (122.53 KB)
+ * Trainable params: 31,368 (122.53 KB)
+ * Non-trainable params: 0 (0.00 B)
+ * Input should include:
+1. Agent's Position: The (x, y) coordinates of the agent in the grid.
+2. Relative Position of the Goal: The relative position of the goal (xg, yg) with respect to the agent. If the goal is not visible, these values can be set to -1.
+3. Distance to the Nearest Obstacle: A scalar value representing the distance to the nearest obstacle.
+4. Path Blocked Indicator: A binary value (0 or 1) indicating whether the path is blocked by obstacles.
+5. Follower Visibility: A binary value (0 or 1) indicating whether the leader can observe the follower.
+6. Distance to Follower: A scalar value representing the distance between the leader and the follower.
+ * Encoded Message is a compressed version of the leader's message which consists of 8 values in an array. 
+
+ ## Execution Guide
+* [**TMUX**](tmux.md) for idling long executions
