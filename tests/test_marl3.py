@@ -346,6 +346,33 @@ class TestMoveAgent(unittest.TestCase):
         print("Encoded Msg:", encoded_output)
         print("Follower Policy Output:", action_probs)
 
+    def test_display_model_summary(self):
+        env = SimpleGridEnv(
+            render_mode="rgb_array",
+            rowSize=10,
+            colSize=10,
+            num_soft_obstacles=10,
+            num_hard_obstacles=5,
+            num_robots=2,
+            tetherDist=2,
+            num_leaders=1,
+            num_target=1
+        )
+        train_MAPPO(
+            episodes=1,  # Minimal number of episodes
+            leader_model=self.mappo.leader_model,
+            follower_model=self.mappo.follower_model,
+            encoded_model=self.mappo.encoded_model,
+            env=env
+        )
+        # Display the model summary for leader and follower models
+        print("LEADER MODEL SUMMARY:")
+        self.mappo.leader_model.summary()
+        print("FOLLOWER MODEL SUMMARY:")
+        self.mappo.follower_model.summary()
+        print("ENCODED MODEL SUMMARY:")
+        self.mappo.encoded_model.summary()
+
     def tearDown(self):
         if hasattr(self, 'env') and self.env is not None:
             self.env.close()
