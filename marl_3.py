@@ -221,7 +221,15 @@ class MAPPO:
         self.encoded_model = encoded_model
         self.optimizer = Adam(learning_rate=lr)
 
-    def compute_loss(self, state_leader, decoded_msg, action_leader, action_follower, reward, leader_message, encoded_message, decoded_message):
+    def compute_loss(self, state_leader, decoded_msg, action_leader, action_follower, reward, leader_message, encoded_message, decoded_message, hyperparams: dict = None):
+        # Hyperparameters
+        contrastive_weight = 0.5  # Default value
+        reconstruction_loss_weight = 0.2  # Default value
+        entropy_bonus_weight = 0.01  # Default value
+        if hyperparams:
+            contrastive_weight = hyperparams.get('contrastive_weight', contrastive_weight)
+            reconstruction_loss_weight = hyperparams.get('reconstruction_loss_weight', reconstruction_loss_weight)
+            entropy_bonus_weight = hyperparams.get('entropy_bonus_weight', entropy_bonus_weight)
         # Convert leader_message and decoded_message to NumPy arrays
         leader_message = np.array(leader_message)
         decoded_message = np.array(decoded_message)
@@ -258,7 +266,7 @@ class MAPPO:
         print('Entropy Bonus', entropy_bonus)
 
         # Final loss function
-        total_loss = policy_loss + 0.01 * entropy_bonus + 0.5 * contrastive_loss_value + 0.2 * reconstruction_loss
+        total_loss = policy_loss + entropy_bonus_weight * entropy_bonus + contrastive_weight * contrastive_loss_value + reconstruction_loss_weight * reconstruction_loss
         print('Total Loss', total_loss)
 
         return total_loss
@@ -289,10 +297,20 @@ def contrastive_loss(messages, positive_pairs, temperature=0.1):
     loss = tf.keras.losses.CategoricalCrossentropy(from_logits=True)(labels, sim_matrix)
     return loss
 
-def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, lr=0.001):
+def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hyperparams: dict = None):
+    lr = 0.001  # Default learning rate
+    max_step_per_episode = 100  # Default max steps per episode
+    max_episodes = 100  # Default max episodes
+    if hyperparams:
+        lr = hyperparams.get('lr', lr)
+        max_step_per_episode = hyperparams.get('max_steps', max_step_per_episode)
+        max_episodes = hyperparams.get('max_episodes', max_episodes)
     optimizer = Adam(learning_rate=lr)
+    total_rewards = []
+    success_rate = 0
+    collision_count = 0
 
-    episodes = episodes if (episodes is not None or episodes > 0) else 100
+    episodes = episodes if (episodes is not None or episodes > 0) else max_episodes
     for episode in range(episodes):
         # Reset the environment
         obs = env.reset()
@@ -302,14 +320,14 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, lr=0
         # Ensure there are targets in the environment
         target_positions = np.argwhere(env.targets == env.TARGET)
         target_pos = target_positions[0] if len(target_positions) > 0 else None
-
+        
+        episode_reset = False
         total_reward = 0
         leader_path = [leader_pos]
         follower_path = [follower_pos]
-        episode_reset = False
 
         reward = 0
-        for step in range(100):  # Limit the number of steps per episode
+        for step in range(max_step_per_episode):  # Limit the number of steps per episode
             # Leader generates a message and takes an action
             leader_message = get_leader_message(leader_pos, env)
             leader_message.append(-1)
@@ -428,7 +446,7 @@ if __name__ == "main":
   print(follower_pos)
   print(target_pos)
 
-  train_MAPPO(2, leader_policy, follower_policy, encoder_decoder,leader_pos, target_pos, follower_pos, lr=0.001)
+  train_MAPPO(2, leader_policy, follower_policy, encoder_decoder,leader_pos, target_pos, follower_pos, {"lr": 0.001})
 
   x,y = leader_pos[0]
   env[x,y]
