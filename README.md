@@ -99,3 +99,6 @@ Example:
 5. Follower Visibility: A binary value (0 or 1) indicating whether the leader can observe the follower.
 6. Distance to Follower: A scalar value representing the distance between the leader and the follower.
  * Encoded Message is a compressed version of the leader's message which consists of 8 values in an array. 
+
+ ## Execution Guide
+* [**TMUX**](tmux.md) for idling long executions
