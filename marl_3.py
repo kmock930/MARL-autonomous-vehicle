@@ -35,6 +35,11 @@ Original file is located at
 
 import tensorflow as tf
 import numpy as np
+import networkx as nx
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Dense, LSTM
+from tensorflow.keras import layers
+from tensorflow.keras.optimizers import Adam
 from constants import ACTION_SPACE, REWARDS
 # Import the Env
 import sys
@@ -42,8 +47,7 @@ import os
 SIMPLEGRID_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), 'gym-simplegrid', 'gym_simplegrid', 'envs'))
 sys.path.append(SIMPLEGRID_PATH)
 from simple_grid import SimpleGridEnv
-from agent import Agent  # Import the Agent class
-import pandas as pd
+from agent import Agent
 import datetime
 
 FREE: int = 0
@@ -70,7 +74,7 @@ env = SimpleGridEnv(
 )
 
 # Modify the `new_pos` function to check roles using the Agent class
-def new_pos(agent_position: tuple[int, int], action: ACTION_SPACE, agents: list[Agent]):
+def new_pos(agent_position: tuple[int, int], action: ACTION_SPACE, agents: list):
     x, y = agent_position
     dx, dy = action.value
 
@@ -78,21 +82,18 @@ def new_pos(agent_position: tuple[int, int], action: ACTION_SPACE, agents: list[
 
     # Check if the new position is within the grid
     if not (0 <= new_pos[0] < env.env_configurations["rowSize"] and 0 <= new_pos[1] < env.env_configurations["colSize"]):
-        print("Out of Bounds")  # Debugging message
-        return agent_position  # Stay
+        return agent_position # Stay
 
     # Check if the new position is occupied by another agent
     for agent in agents:
-        if agent["position"] == new_pos:
-            print("Agent Collision")  # Debugging message
+        agent_pos = agent.get('position') if isinstance(agent, dict) else getattr(agent, 'position', None)
+        if agent_pos == new_pos:
             return agent_position  # Stay
 
-    # Check if the new position is an obstacle
-    if env.obstacles[new_pos[0], new_pos[1]] in [OBSTACLE_SOFT, OBSTACLE_HARD]:
-        print("Obstacle Collision")  # Debugging message
+    # Check if the new position is a hard obstacle
+    if env.obstacles[new_pos[0], new_pos[1]] in [OBSTACLE_HARD]:
         return agent_position  # Stay
 
-    print("Valid Move")  # Debugging message
     return new_pos
 
 # Diagonal
@@ -190,25 +191,27 @@ def get_leader_message(pos: tuple[int, int], env: SimpleGridEnv):
     return [xg, yg, obs_dist, follower_visibility, follower_dist, path_blocked]
 
 # LSTM
+from tensorflow.keras.layers import Reshape
+
 def build_encoder_decoder():
-    input_layer = tf.keras.layers.Input(shape=(8,))
-    reshaped = tf.keras.layers.Reshape((1, 8))(input_layer)
-    x = tf.keras.layers.LSTM(64, return_sequences=True)(reshaped)
-    x = tf.keras.layers.LSTM(32)(x)
-    output_layer = tf.keras.layers.Dense(8, activation="linear")(x)
-    return tf.keras.models.Model(input_layer, output_layer)
+    input_layer = Input(shape=(8,))
+    reshaped = Reshape((1, 8))(input_layer)
+    x = LSTM(64, return_sequences=True)(reshaped)
+    x = LSTM(32)(x)
+    output_layer = Dense(8, activation="linear")(x)
+    return Model(input_layer, output_layer)
 
 encoder_decoder = build_encoder_decoder()
 
 # MLP MAPPO
 def build_policy_network():
-    input_layer = tf.keras.layers.Input(shape=(8,))
+    input_layer = Input(shape=(8,))
     # hidden layers
-    x = tf.keras.layers.Dense(64, activation="relu")(input_layer)
-    x = tf.keras.layers.Dense(64, activation="relu")(x)
+    x = Dense(64, activation="relu")(input_layer)
+    x = Dense(64, activation="relu")(x)
     # output layer
-    output_layer = tf.keras.layers.Dense(len(ACTION_SPACE), activation="softmax")(x)
-    return tf.keras.models.Model(input_layer, output_layer)
+    output_layer = Dense(len(ACTION_SPACE), activation="softmax")(x)
+    return Model(input_layer, output_layer)
 
 leader_policy = build_policy_network()
 follower_policy = build_policy_network()
@@ -218,7 +221,7 @@ class MAPPO:
         self.leader_model = leader_model
         self.follower_model = follower_model
         self.encoded_model = encoded_model
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
+        self.optimizer = Adam(learning_rate=lr)
 
     def compute_loss(self, state_leader, decoded_msg, action_leader, action_follower, reward, leader_message, encoded_message, decoded_message, hyperparams: dict = None):
         # Hyperparameters
@@ -290,14 +293,30 @@ class MAPPO:
 # Contrastive Learning for Communication
 # =======================
 def contrastive_loss(messages, positive_pairs, temperature=0.1):
+    """
+    Compute the contrastive loss for communication alignment.
+
+    Parameters:
+    - messages: Tensor of shape (batch_size, embedding_dim), normalized embeddings.
+    - positive_pairs: List of indices representing positive pairs.
+    - temperature: Temperature parameter for scaling the similarity matrix.
+
+    Returns:
+    - loss: Contrastive loss value.
+    """
+    # Normalize the embeddings
     messages = tf.keras.layers.Lambda(lambda x: tf.math.l2_normalize(x, axis=1))(messages)
+
+    # Compute the similarity matrix
     sim_matrix = tf.matmul(messages, messages, transpose_b=True) / temperature
+    sim_matrix = tf.reshape(sim_matrix, (-1, 1))
+
+    # Create one-hot labels for positive pairs
     labels = tf.one_hot(positive_pairs, depth=len(messages))
-    loss = tf.keras.losses.binary_crossentropy(from_logits=True)(labels, sim_matrix)
+    loss = tf.keras.losses.CategoricalCrossentropy(from_logits=True)(labels, sim_matrix)
     return loss
 
 def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hyperparams: dict = None):
-    print("Starting training...")
     # Logging
     episode_rewards = []
     episode_losses = []
@@ -311,13 +330,10 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hype
         lr = hyperparams.get('lr', lr)
         max_step_per_episode = hyperparams.get('max_steps', max_step_per_episode)
         max_episodes = hyperparams.get('max_episodes', max_episodes)
-    optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
+    optimizer = Adam(learning_rate=lr)
     total_rewards = []
     success_rate = 0
     collision_count = 0
-
-    # Initialize MAPPO model
-    mappo_model = MAPPO(leader_model, follower_model, encoded_model, lr)
 
     episodes = episodes if (episodes is not None or episodes > 0) else max_episodes
     for episode in range(episodes):
@@ -337,13 +353,6 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hype
         follower_path = [follower_pos]
 
         reward = 0
-        tether_violated = 0
-        collisions = 0
-        distances = []
-
-        reconstruction_loss = 0  # Initialize reconstruction_loss to avoid UnboundLocalError
-        entropy_bonus = 0  # Initialize entropy_bonus to avoid UnboundLocalError
-        loss = 0  # Initialize loss to avoid UnboundLocalError
         for step in range(max_step_per_episode):  # Limit the number of steps per episode
             print(f"Step {step + 1}/{max_step_per_episode}")
             # Leader generates a message and takes an action
@@ -370,20 +379,15 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hype
 
             # Compute distance
             distance = np.sqrt((new_leader_pos[0] - new_follower_pos[0])**2 + (new_leader_pos[1] - new_follower_pos[1])**2)
-            distances.append(distance)
 
             x_l, y_l = new_leader_pos
             x_f, y_f = new_follower_pos
 
-            # Use tetherDist from the environment configuration
-            tether_limit = env.env_configurations["tetherDist"]
-            if distance > tether_limit or distance < 1:
-                tether_violated += 1
-                print(f"Episode {episode+1}: Tether constraint violated (Distance: {distance:.2f}, Tether Limit: {tether_limit}). Resetting...")
+            if distance > 2 or distance < 1:
+                print(f"Episode {episode+1}: Distance constraint violated (Distance: {distance:.2f}). Resetting...")
                 break
 
             elif env.obstacles[x_l, y_l] == OBSTACLE_HARD or env.obstacles[x_f, y_f] == OBSTACLE_HARD:
-                collisions += 1
                 print(f"Episode {episode+1}: Hard obstacle constraint violated. Resetting...")
                 break
 
@@ -421,18 +425,6 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hype
 
             total_reward += reward
 
-            # Compute reconstruction loss
-            reconstruction_loss = tf.reduce_mean(
-                tf.keras.losses.MSE(
-                    np.array(leader_message[:8]), 
-                    decoded_msg
-                )
-            )
-
-            # Compute entropy bonus
-            action_prob_leader = leader_model.predict(np.array(leader_message[:8]).reshape(1, -1))
-            entropy_bonus = -tf.reduce_mean(action_prob_leader * tf.math.log(action_prob_leader + 1e-8))
-
             mappo_model = MAPPO(leader_model, follower_model, encoded_model)
             print("mappo")
             with tf.GradientTape() as tape:
@@ -447,9 +439,6 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hype
             grads = tape.gradient(loss, leader_model.trainable_variables + follower_model.trainable_variables)
             optimizer.apply_gradients(zip(grads, leader_model.trainable_variables + follower_model.trainable_variables))
 
-        avg_reward = total_reward / max_step_per_episode  # Calculate average reward
-        print(f"Episode {episode + 1}: Average Reward: {avg_reward:.2f}")  # Log average reward
-
         # Log metrics for the episode
         episode_rewards.append(total_reward)
         episode_losses.append(float(loss))
@@ -463,7 +452,6 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hype
         episode_logs.append({
             "episode": episode + 1,
             "reward": total_reward,
-            "avg_reward": avg_reward,
             "policy_loss": float(loss),
             "contrastive_loss": float(mappo_model.compute_loss(
                 state_leader=np.array(leader_message[:8]),
@@ -495,18 +483,6 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hype
     if not os.path.exists('logs'):
         os.mkdir('logs')
     FILENAME = "evaluation_metrics.csv"
-
-    # Add timestamp and number of episodes to the logs
-    logs_df['timestamp'] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    logs_df['num_episodes'] = episodes
-
-    # Append to the file if it exists, otherwise create a new one
-    file_path = f"logs/{FILENAME}"
-    if os.path.exists(file_path):
-        logs_df.to_csv(file_path, mode='a', header=False, index=False)
-    else:
-        logs_df.to_csv(file_path, index=False)
-    
     logs_df.to_csv(f"logs/{FILENAME}", index=False)
     print(f"Training logs exported to '{FILENAME}'")
 

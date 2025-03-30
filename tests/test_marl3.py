@@ -46,32 +46,61 @@ class TestMoveAgent(unittest.TestCase):
         self.checkPosition(self.agent_position)
 
     def test_new_pos(self):
-        # Move the agent to a new position
-        agent_current_pos = self.env.agents[0]['position']
+        # Move the agent to a new position - Agent in Focus: Leader
+        leader_current_pos = self.env.agents[0]['position']
+        follower_current_pos = self.env.agents[1]['position']
         action = ACTION_SPACE.UP
         actionValue = action.value
         agents = self.env.agents
-        newPos = new_pos(agent_current_pos, action, agents)
+        newPos_leader = new_pos(leader_current_pos, action, agents)
+        newPos_follower = new_pos(follower_current_pos, action, agents)
 
         # Check if the new position is valid
-        expected_new_pos = (agent_current_pos[0] + actionValue[0], agent_current_pos[1] + actionValue[1])
-        if not (0 <= expected_new_pos[0] < self.env.env_configurations["rowSize"] and
-                0 <= expected_new_pos[1] < self.env.env_configurations["colSize"]):
+        leader_expected_new_pos = (leader_current_pos[0] + actionValue[0], leader_current_pos[1] + actionValue[1])
+        follower_expected_new_pos = (follower_current_pos[0] + actionValue[0], follower_current_pos[1] + actionValue[1])
+
+        # Conditions
+        isLeader_out_of_bounds = not (0 <= leader_expected_new_pos[0] < self.env.env_configurations["rowSize"] and 0 <= leader_expected_new_pos[1] < self.env.env_configurations["colSize"])
+        isFollower_out_of_bounds = not (0 <= follower_expected_new_pos[0] < self.env.env_configurations["rowSize"] and 0 <= follower_expected_new_pos[1] < self.env.env_configurations["colSize"])
+        isLeader_agent_collision = any(agent['position'] == leader_expected_new_pos for agent in agents)
+        isFollower_agent_collision = any(agent['position'] == follower_expected_new_pos for agent in agents)
+        isLeader_obstacle_collision = self.env.obstacles[leader_expected_new_pos[0], leader_expected_new_pos[1]] in [self.env.OBSTACLE_HARD]
+        isFollower_obstacle_collision = self.env.obstacles[follower_expected_new_pos[0], follower_expected_new_pos[1]] in [self.env.OBSTACLE_HARD]
+
+        if isLeader_out_of_bounds or isFollower_out_of_bounds:
             # If the move is out of bounds, the position should remain the same
             print("Out of Bounds")
-            self.assertEqual(newPos, agent_current_pos)
-        elif any(agent['position'] == expected_new_pos for agent in agents):
+            if isLeader_out_of_bounds:
+                print("Leader out of bounds")
+                self.assertEqual(newPos_leader, leader_current_pos)
+            if isFollower_out_of_bounds:
+                print("Follower out of bounds")
+                self.assertEqual(newPos_follower, follower_current_pos)
+        elif isLeader_agent_collision or isFollower_agent_collision:
             # If the move collides with another agent, the position should remain the same
             print("Agent Collision")
-            self.assertEqual(newPos, agent_current_pos)
-        elif self.env.obstacles[expected_new_pos[0], expected_new_pos[1]] in [self.env.OBSTACLE_SOFT, self.env.OBSTACLE_HARD]:
+            if isLeader_agent_collision:
+                print("Leader agent collision")
+                self.assertEqual(newPos_leader, leader_current_pos)
+            if isFollower_agent_collision:
+                print("Follower agent collision")
+                self.assertEqual(newPos_follower, follower_current_pos)
+        elif isLeader_obstacle_collision or isFollower_obstacle_collision:
             # If the move collides with an obstacle, the position should remain the same
             print("Obstacle Collision")
-            self.assertEqual(newPos, agent_current_pos)
+            if isLeader_obstacle_collision:
+                print("Leader obstacle collision")
+                self.assertEqual(newPos_leader, leader_current_pos)
+            if isFollower_agent_collision:
+                print("Follower obstacle collision")
+                self.assertEqual(newPos_follower, follower_current_pos)
         else:
             # Otherwise, the position should update correctly
             print("Valid Move")
-            self.assertEqual(newPos, expected_new_pos)
+            if not (isLeader_out_of_bounds and isLeader_agent_collision and isLeader_obstacle_collision):
+                self.assertEqual(newPos_leader, leader_expected_new_pos)
+            if not (isFollower_out_of_bounds and isFollower_agent_collision and isFollower_obstacle_collision):
+                self.assertEqual(newPos_follower, follower_expected_new_pos)
 
     def test_get_leader_message(self):
         # Get the position of the leader agent
