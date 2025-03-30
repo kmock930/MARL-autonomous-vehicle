@@ -1,8 +1,6 @@
 import numpy as np
 import sys
 sys.path.append('gym-simplegrid')
-import gym_simplegrid # directory in git
-import gymnasium as gym
 from constants import ACTION_SPACE
 
 class Agent:
