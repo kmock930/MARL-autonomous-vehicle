@@ -16,7 +16,7 @@ To work with LaTex locally on your IDE, follow the steps below:
 ## Prerequisites for Executable Codes in this Project
 * Create a Virtual Environment with this command on a terminal: `py -m venv marl_env`.
 * Update pip to its latest version with this command: `py -m pip install --upgrade pip`.
-* From the Virtual Environment, install all the dependencies with this command: `pip install -r requirements.txt`, or `conda install -p /MARL-autonomous-vehicle/.conda --file requirements.txt` if you use conda. Note: Use a **full path** for conda.
+* From the Virtual Environment, install all the dependencies with this command: `pip install -r requirements.txt`, or `conda list -e > requirements.txt` if you use conda. Note: Use a **full path** for conda.
 * Or you may find creating a virtual environment useful if you keep facing dependency issues. Just run the following command before installing libraries from pip: 
 `
     python -m venv marl_env
