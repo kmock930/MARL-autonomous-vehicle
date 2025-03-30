@@ -89,8 +89,8 @@ def new_pos(agent_position: tuple[int, int], action: ACTION_SPACE, agents: list)
         if agent_pos == new_pos:
             return agent_position  # Stay
 
-    # Check if the new position is an obstacle
-    if env.obstacles[new_pos[0], new_pos[1]] in [OBSTACLE_SOFT, OBSTACLE_HARD]:
+    # Check if the new position is a hard obstacle
+    if env.obstacles[new_pos[0], new_pos[1]] in [OBSTACLE_HARD]:
         return agent_position  # Stay
 
     return new_pos
