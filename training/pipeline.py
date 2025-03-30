@@ -5,15 +5,15 @@ sys.path.append(ROOT_PATH)
 SIMPLEGRID_PATH = os.path.abspath(os.path.join(ROOT_PATH, 'gym-simplegrid', 'gym_simplegrid', 'envs'))
 sys.path.append(SIMPLEGRID_PATH)
 from simple_grid import SimpleGridEnv
-from marl_3 import train_MAPPO, encoder_decoder, leader_policy, follower_policy, MAPPO
-from tensorflow.keras.optimizers import Adam
-import tensorflow as tf
+from marl_3 import train_MAPPO, encoder_decoder, leader_policy, follower_policy
 import time
 
 # Hyperparemeter Tuning
 import random
 
 def main(): # main pipeline goes here
+
+    startTime = time.time()
 
     # Initialize the Environment
     env = SimpleGridEnv(
@@ -47,7 +47,7 @@ def main(): # main pipeline goes here
     best_score = -float('inf')
     best_params = None
 
-    startTime = time.time()
+    algoStartTime = time.time()
 
     # Perform Hyperparameter Tuning with Grid Search
     for lr in learning_rates:
@@ -74,14 +74,14 @@ def main(): # main pipeline goes here
                                 episodes=episodes,
                                 leader_model=leader_policy,
                                 follower_model=follower_policy,
-                                encoder_decoder=encoder_decoder,
+                                encoded_model=encoder_decoder,  # Corrected argument name
                                 env=env,
                                 hyperparams=params
                             )
 
                             # Evaluate the models (e.g., based on cumulative reward or success rate)
-                            # For simplicity, assume train_MAPPO returns a success rate
-                            success_rate = env.cumulative_reward  # Replace with actual metric if available
+                            # Retrieve cumulative reward from the environment's info
+                            success_rate = env.get_info().get('cumulative_reward', 0)
 
                             print(f"Success Rate: {success_rate}")
 
@@ -100,11 +100,12 @@ def main(): # main pipeline goes here
             print(f"Time taken for this episode: {endTimeInEpisode - startTimeInEpisode} seconds")
 
     endTime = time.time()
-    print(f"Time taken for hyperparameter tuning and training with the best ones: {endTime - startTime} seconds")
+    print(f"Time taken for hyperparameter tuning and training with the best ones: {endTime - algoStartTime} seconds")
+    print(f"Time taken for the entire pipeline process is: {endTime - startTime} seconds")
 
     # Print Best Hyperparameters
     print(f"Best Hyperparameters: {best_params}") # dict: best learning rate + episode
     print(f"Best Success Rate: {best_score}") # best success rate
 
-if __name__ == "main":
+if __name__ == "__main__":
     main()
