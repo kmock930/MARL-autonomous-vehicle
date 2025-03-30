@@ -35,11 +35,6 @@ Original file is located at
 
 import tensorflow as tf
 import numpy as np
-import networkx as nx
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, Dense, LSTM
-from tensorflow.keras import layers
-from tensorflow.keras.optimizers import Adam
 from constants import ACTION_SPACE, REWARDS
 # Import the Env
 import sys
@@ -48,6 +43,7 @@ SIMPLEGRID_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), 'gym-s
 sys.path.append(SIMPLEGRID_PATH)
 from simple_grid import SimpleGridEnv
 from agent import Agent  # Import the Agent class
+import pandas as pd
 
 FREE: int = 0
 OBSTACLE_SOFT: int = 1
@@ -81,17 +77,21 @@ def new_pos(agent_position: tuple[int, int], action: ACTION_SPACE, agents: list[
 
     # Check if the new position is within the grid
     if not (0 <= new_pos[0] < env.env_configurations["rowSize"] and 0 <= new_pos[1] < env.env_configurations["colSize"]):
-        return agent_position # Stay
+        print("Out of Bounds")  # Debugging message
+        return agent_position  # Stay
 
     # Check if the new position is occupied by another agent
     for agent in agents:
         if agent["position"] == new_pos:
+            print("Agent Collision")  # Debugging message
             return agent_position  # Stay
 
     # Check if the new position is an obstacle
     if env.obstacles[new_pos[0], new_pos[1]] in [OBSTACLE_SOFT, OBSTACLE_HARD]:
+        print("Obstacle Collision")  # Debugging message
         return agent_position  # Stay
 
+    print("Valid Move")  # Debugging message
     return new_pos
 
 # Diagonal
@@ -189,27 +189,25 @@ def get_leader_message(pos: tuple[int, int], env: SimpleGridEnv):
     return [xg, yg, obs_dist, follower_visibility, follower_dist, path_blocked]
 
 # LSTM
-from tensorflow.keras.layers import Reshape
-
 def build_encoder_decoder():
-    input_layer = Input(shape=(8,))
-    reshaped = Reshape((1, 8))(input_layer)
-    x = LSTM(64, return_sequences=True)(reshaped)
-    x = LSTM(32)(x)
-    output_layer = Dense(8, activation="linear")(x)
-    return Model(input_layer, output_layer)
+    input_layer = tf.keras.layers.Input(shape=(8,))
+    reshaped = tf.keras.layers.Reshape((1, 8))(input_layer)
+    x = tf.keras.layers.LSTM(64, return_sequences=True)(reshaped)
+    x = tf.keras.layers.LSTM(32)(x)
+    output_layer = tf.keras.layers.Dense(8, activation="linear")(x)
+    return tf.keras.models.Model(input_layer, output_layer)
 
 encoder_decoder = build_encoder_decoder()
 
 # MLP MAPPO
 def build_policy_network():
-    input_layer = Input(shape=(8,))
+    input_layer = tf.keras.layers.Input(shape=(8,))
     # hidden layers
-    x = Dense(64, activation="relu")(input_layer)
-    x = Dense(64, activation="relu")(x)
+    x = tf.keras.layers.Dense(64, activation="relu")(input_layer)
+    x = tf.keras.layers.Dense(64, activation="relu")(x)
     # output layer
-    output_layer = Dense(len(ACTION_SPACE), activation="softmax")(x)
-    return Model(input_layer, output_layer)
+    output_layer = tf.keras.layers.Dense(len(ACTION_SPACE), activation="softmax")(x)
+    return tf.keras.models.Model(input_layer, output_layer)
 
 leader_policy = build_policy_network()
 follower_policy = build_policy_network()
@@ -219,7 +217,7 @@ class MAPPO:
         self.leader_model = leader_model
         self.follower_model = follower_model
         self.encoded_model = encoded_model
-        self.optimizer = Adam(learning_rate=lr)
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
 
     def compute_loss(self, state_leader, decoded_msg, action_leader, action_follower, reward, leader_message, encoded_message, decoded_message, hyperparams: dict = None):
         # Hyperparameters
@@ -298,6 +296,12 @@ def contrastive_loss(messages, positive_pairs, temperature=0.1):
     return loss
 
 def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hyperparams: dict = None):
+    # Logging
+    episode_rewards = []
+    episode_losses = []
+    episode_logs = []  # To store detailed logs for each episode
+
+    # Hyperparameters
     lr = 0.001  # Default learning rate
     max_step_per_episode = 100  # Default max steps per episode
     max_episodes = 100  # Default max episodes
@@ -305,10 +309,13 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hype
         lr = hyperparams.get('lr', lr)
         max_step_per_episode = hyperparams.get('max_steps', max_step_per_episode)
         max_episodes = hyperparams.get('max_episodes', max_episodes)
-    optimizer = Adam(learning_rate=lr)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
     total_rewards = []
     success_rate = 0
     collision_count = 0
+
+    # Initialize MAPPO model
+    mappo_model = MAPPO(leader_model, follower_model, encoded_model, lr)
 
     episodes = episodes if (episodes is not None or episodes > 0) else max_episodes
     for episode in range(episodes):
@@ -327,6 +334,13 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hype
         follower_path = [follower_pos]
 
         reward = 0
+        tether_violated = 0
+        collisions = 0
+        distances = []
+
+        reconstruction_loss = 0  # Initialize reconstruction_loss to avoid UnboundLocalError
+        entropy_bonus = 0  # Initialize entropy_bonus to avoid UnboundLocalError
+        loss = 0  # Initialize loss to avoid UnboundLocalError
         for step in range(max_step_per_episode):  # Limit the number of steps per episode
             # Leader generates a message and takes an action
             leader_message = get_leader_message(leader_pos, env)
@@ -352,15 +366,20 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hype
 
             # Compute distance
             distance = np.sqrt((new_leader_pos[0] - new_follower_pos[0])**2 + (new_leader_pos[1] - new_follower_pos[1])**2)
+            distances.append(distance)
 
             x_l, y_l = new_leader_pos
             x_f, y_f = new_follower_pos
 
-            if distance > 2 or distance < 1:
-                print(f"Episode {episode+1}: Distance constraint violated (Distance: {distance:.2f}). Resetting...")
+            # Use tetherDist from the environment configuration
+            tether_limit = env.env_configurations["tetherDist"]
+            if distance > tether_limit or distance < 1:
+                tether_violated += 1
+                print(f"Episode {episode+1}: Tether constraint violated (Distance: {distance:.2f}, Tether Limit: {tether_limit}). Resetting...")
                 break
 
             elif env.obstacles[x_l, y_l] == OBSTACLE_HARD or env.obstacles[x_f, y_f] == OBSTACLE_HARD:
+                collisions += 1
                 print(f"Episode {episode+1}: Hard obstacle constraint violated. Resetting...")
                 break
 
@@ -398,6 +417,18 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hype
 
             total_reward += reward
 
+            # Compute reconstruction loss
+            reconstruction_loss = tf.reduce_mean(
+                tf.keras.losses.MSE(
+                    np.array(leader_message[:8]), 
+                    decoded_msg
+                )
+            )
+
+            # Compute entropy bonus
+            action_prob_leader = leader_model.predict(np.array(leader_message[:8]).reshape(1, -1))
+            entropy_bonus = -tf.reduce_mean(action_prob_leader * tf.math.log(action_prob_leader + 1e-8))
+
             mappo_model = MAPPO(leader_model, follower_model, encoded_model)
             print("mappo")
             with tf.GradientTape() as tape:
@@ -412,10 +443,52 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hype
             grads = tape.gradient(loss, leader_model.trainable_variables + follower_model.trainable_variables)
             optimizer.apply_gradients(zip(grads, leader_model.trainable_variables + follower_model.trainable_variables))
 
+        # Log metrics for the episode
+        episode_rewards.append(total_reward)
+        episode_losses.append(float(loss))
+        avg_distance = np.mean(distances) if distances else 0
+        reached_goal = env.done
+
+        # Retrieve cumulative reward from the environment's info
+        cumulative_reward = env.get_info().get('cumulative_reward', 0)
+        print(f"\nEpisode {episode+1} finished with Cumulative Reward: {cumulative_reward}")
+
+        episode_logs.append({
+            "episode": episode + 1,
+            "reward": total_reward,
+            "policy_loss": float(loss),
+            "contrastive_loss": float(mappo_model.compute_loss(
+                state_leader=np.array(leader_message[:8]),
+                decoded_msg=decoded_msg,
+                action_leader=leader_action,
+                action_follower=follower_action,
+                reward=reward,
+                leader_message=leader_message,
+                encoded_message=encoded_msg,
+                decoded_message=decoded_msg
+            )),
+            "reconstruction_loss": float(reconstruction_loss),
+            "entropy": float(entropy_bonus),  # Use the initialized or computed entropy_bonus
+            "success": reached_goal,
+            "tether_violations": tether_violated,
+            "collisions": collisions,
+            "avg_distance": avg_distance,
+            "hyperparams": hyperparams,
+            "cumulative_reward": cumulative_reward
+        })
+
         if not episode_reset:
             print(f"\nEpisode {episode+1} finished with Reward: {total_reward}")
             print(f"Leader Path: {leader_path}")
             print(f"Follower Path: {follower_path}\n")
+
+    # Export logs to a CSV file after training
+    logs_df = pd.DataFrame(episode_logs)
+    if not os.path.exists('logs'):
+        os.mkdir('logs')
+    FILENAME = "evaluation_metrics.csv"
+    logs_df.to_csv(f"logs/{FILENAME}", index=False)
+    print(f"Training logs exported to '{FILENAME}'")
 
 
 if __name__ == "main":
