@@ -1,2 +1,0 @@
-episode,reward,policy_loss,contrastive_loss,reconstruction_loss,entropy,success,tether_violations,collisions,avg_distance,hyperparams,cumulative_reward
-1,-820,-198.75196838378906,-203.42071533203125,0.9950097799301147,0.13731174170970917,False,1,0,1.991470281460314,,-2001

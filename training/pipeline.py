@@ -7,12 +7,17 @@ sys.path.append(SIMPLEGRID_PATH)
 from simple_grid import SimpleGridEnv
 from marl_3 import train_MAPPO, encoder_decoder, leader_policy, follower_policy
 import time
+import tensorflow as tf
 
 # Hyperparemeter Tuning
 import random
 
 def main(): # main pipeline goes here
 
+    # Tracking GPU
+    tf.debugging.set_log_device_placement(True)
+
+    tf.profiler.experimental.start('logs') # start GPU memory count
     startTime = time.time()
 
     # Initialize the Environment
@@ -37,12 +42,13 @@ def main(): # main pipeline goes here
     encoder_decoder.save('models/policy_network_RAW.h5')
 
     # Define Hyperparameter Grid
-    learning_rates = [round(random.uniform(0.0001, 0.01), 6) for _ in range(5)]
+    HYPERPARAMETER_COUNT = 1
+    learning_rates = [round(random.uniform(0.0001, 0.01), 6) for _ in range(HYPERPARAMETER_COUNT)]
     episodes_list = [50] # Now we only consider a static number of episodes for simplicity
-    contrastive_weights = [round(random.uniform(0.1, 1.0), 2) for _ in range(5)]
-    reconstruction_weights = [round(random.uniform(0.1, 0.5), 2) for _ in range(5)]
-    entropy_weights = [round(random.uniform(0.01, 0.1), 3) for _ in range(5)]
-    max_steps_list = [random.choice([50, 100, 200]) for _ in range(5)]
+    contrastive_weights = [round(random.uniform(0.1, 1.0), 2) for _ in range(HYPERPARAMETER_COUNT)]
+    reconstruction_weights = [round(random.uniform(0.1, 0.5), 2) for _ in range(HYPERPARAMETER_COUNT)]
+    entropy_weights = [round(random.uniform(0.01, 0.1), 3) for _ in range(HYPERPARAMETER_COUNT)]
+    max_steps_list = [random.choice([50, 100, 200]) for _ in range(HYPERPARAMETER_COUNT)]
 
     best_score = -float('inf')
     best_params = None
@@ -103,9 +109,13 @@ def main(): # main pipeline goes here
     print(f"Time taken for hyperparameter tuning and training with the best ones: {endTime - algoStartTime} seconds")
     print(f"Time taken for the entire pipeline process is: {endTime - startTime} seconds")
 
+    tf.profiler.experimental.stop() # end GPU memory count
+
     # Print Best Hyperparameters
     print(f"Best Hyperparameters: {best_params}") # dict: best learning rate + episode
     print(f"Best Success Rate: {best_score}") # best success rate
+
+    print(f"✅ Completed the training pipeline successfully.")
 
 if __name__ == "__main__":
     main()
