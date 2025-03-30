@@ -20,4 +20,4 @@ This project involves long processes and as a result, **tmux** becomes a handy t
 4) To kill a tmux server: `tmux kill-server`.
 
 ## Observe Real-Time Logs from an External File
-Run this command: `python pipeline.py > train.log 2>&1`
+Run this command: `python pipeline.py > train.log 2>&1` (Note: `2>&1` is for live inspection in the log file.)
