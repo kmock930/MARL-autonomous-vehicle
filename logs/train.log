@@ -1,0 +1,83 @@
+2025-03-30 16:28:27.308459: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:485] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-03-30 16:28:27.332804: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:8454] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2025-03-30 16:28:27.340108: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1452] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-03-30 16:28:27.359660: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: SSE4.1 SSE4.2 AVX AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1743366510.379826 2591617 cuda_executor.cc:1015] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/testing/sysfs-bus-pci#L344-L355
+I0000 00:00:1743366510.474766 2591617 cuda_executor.cc:1015] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/testing/sysfs-bus-pci#L344-L355
+I0000 00:00:1743366510.475241 2591617 cuda_executor.cc:1015] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/testing/sysfs-bus-pci#L344-L355
+I0000 00:00:1743366510.478634 2591617 cuda_executor.cc:1015] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/testing/sysfs-bus-pci#L344-L355
+I0000 00:00:1743366510.479164 2591617 cuda_executor.cc:1015] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/testing/sysfs-bus-pci#L344-L355
+I0000 00:00:1743366510.479616 2591617 cuda_executor.cc:1015] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/testing/sysfs-bus-pci#L344-L355
+I0000 00:00:1743366510.781922 2591617 cuda_executor.cc:1015] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/testing/sysfs-bus-pci#L344-L355
+I0000 00:00:1743366510.782504 2591617 cuda_executor.cc:1015] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/testing/sysfs-bus-pci#L344-L355
+I0000 00:00:1743366510.782975 2591617 cuda_executor.cc:1015] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/testing/sysfs-bus-pci#L344-L355
+2025-03-30 16:28:30.783392: I tensorflow/core/common_runtime/gpu/gpu_device.cc:2021] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 6799 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 2080 SUPER, pci bus id: 0000:00:05.0, compute capability: 7.5
+2025-03-30 16:28:32.370601: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:103] Profiler session initializing.
+2025-03-30 16:28:32.370894: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:118] Profiler session started.
+2025-03-30 16:28:32.370996: I external/local_xla/xla/backends/profiler/gpu/cupti_tracer.cc:892] Profiler found 1 GPUs
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`. 
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`. 
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`. 
+I0000 00:00:1743366513.064328 2591695 service.cc:146] XLA service 0x7f4dfc020a40 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1743366513.064534 2591695 service.cc:154]   StreamExecutor device (0): NVIDIA GeForce RTX 2080 SUPER, Compute Capability 7.5
+2025-03-30 16:28:33.080100: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:268] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+2025-03-30 16:28:33.110421: I external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:531] Loaded cuDNN version 90101
+I0000 00:00:1743366513.287969 2591695 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+Training with parameters: {'lr': 0.00079, 'episodes': 50, 'contrastive_weight': 0.79, 'reconstruction_weight': 0.14, 'entropy_weight': 0.069, 'max_steps': 50}
+Starting training...
+
+Episode 1/50
+Starting reset process
+Data: [[0 0 1 1 0 0 0 0 0 0]
+ [0 0 0 4 1 0 0 0 0 0]
+ [2 0 0 0 0 0 0 0 0 0]
+ [0 1 0 0 0 0 2 0 0 0]
+ [0 3 0 0 0 2 0 0 0 0]
+ [0 1 0 0 0 1 0 0 0 0]
+ [3 0 2 0 0 0 0 0 0 0]
+ [0 0 0 0 0 1 0 0 1 0]
+ [1 0 0 0 0 0 0 0 0 0]
+ [1 0 0 2 0 0 0 0 0 0]]
+Agents: [{'position': (6, 0), 'role': 'leader'}, {'position': (4, 1), 'role': 'follower'}]
+Data: [[0 0 1 1 0 0 0 0 0 0]
+ [0 0 0 4 1 0 0 0 0 0]
+ [2 0 0 0 0 0 0 0 0 0]
+ [0 1 0 0 0 0 2 0 0 0]
+ [0 3 0 0 0 2 0 0 0 0]
+ [0 1 0 0 0 1 0 0 0 0]
+ [3 0 2 0 0 0 0 0 0 0]
+ [0 0 0 0 0 1 0 0 1 0]
+ [1 0 0 0 0 0 0 0 0 0]
+ [1 0 0 2 0 0 0 0 0 0]]
+Agents: [{'position': (6, 0), 'role': 'leader'}, {'position': (4, 1), 'role': 'follower'}]
+Step 1/50
+[1m1/1[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 330ms/step[1m1/1[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 331ms/step
+[1m1/1[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 354ms/step[1m1/1[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 355ms/step
+[1m1/1[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 199ms/step[1m1/1[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 200ms/step
+Valid Move
+follower
+Episode 1: Tether constraint violated (Distance: 3.61, Tether Limit: 2). Resetting...
+Episode 1: Average Reward: 0.00
+
+Episode 1 finished with Cumulative Reward: -50
+loss tf.Tensor(-0.07387182, shape=(), dtype=float32)
+Policy Gradient Loss tf.Tensor(-0.17052373, shape=(), dtype=float32)
+Traceback (most recent call last):
+  File "/home/student/Public/MARL-autonomous-vehicle/training/pipeline.py", line 121, in <module>
+    main()
+  File "/home/student/Public/MARL-autonomous-vehicle/training/pipeline.py", line 79, in main
+    train_MAPPO(
+  File "/home/student/Public/MARL-autonomous-vehicle/marl_3.py", line 468, in train_MAPPO
+    "contrastive_loss": float(mappo_model.compute_loss(
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/student/Public/MARL-autonomous-vehicle/marl_3.py", line 248, in compute_loss
+    contrastive_loss_value = contrastive_loss(tf.convert_to_tensor([encoded_message]), positive_pairs=[0])
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/student/Public/MARL-autonomous-vehicle/marl_3.py", line 296, in contrastive_loss
+    loss = tf.keras.losses.binary_crossentropy(from_logits=True)(labels, sim_matrix)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: binary_crossentropy() missing 2 required positional arguments: 'y_true' and 'y_pred'
+2025-03-30 16:28:36.202730: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:130] Profiler session tear down.
+2025-03-30 16:28:36.207202: I external/local_xla/xla/backends/profiler/gpu/cupti_tracer.cc:1036] CUPTI activity buffer flushed
