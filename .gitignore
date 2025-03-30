@@ -6,3 +6,4 @@
 **/*.docx
 **/__pycache__/
 .vscode/
+**/proposal doc/*.log
