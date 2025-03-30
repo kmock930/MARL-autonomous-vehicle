@@ -290,11 +290,31 @@ class MAPPO:
 # Contrastive Learning for Communication
 # =======================
 def contrastive_loss(messages, positive_pairs, temperature=0.1):
+    """
+    Compute the contrastive loss for communication alignment.
+
+    Parameters:
+    - messages: Tensor of shape (batch_size, embedding_dim), normalized embeddings.
+    - positive_pairs: List of indices representing positive pairs.
+    - temperature: Temperature parameter for scaling the similarity matrix.
+
+    Returns:
+    - loss: Contrastive loss value.
+    """
+    # Normalize the embeddings
     messages = tf.keras.layers.Lambda(lambda x: tf.math.l2_normalize(x, axis=1))(messages)
+    # Compute the similarity matrix
     sim_matrix = tf.matmul(messages, messages, transpose_b=True) / temperature
+    sim_matrix = tf.reshape(sim_matrix, (-1, 1))
+    # Create one-hot labels for positive pairs
     labels = tf.one_hot(positive_pairs, depth=len(messages))
-    loss = tf.keras.losses.binary_crossentropy(from_logits=True)(labels, sim_matrix)
-    return loss
+    labels = tf.reshape(labels, (-1, 1))
+
+    # Compute the binary cross-entropy loss
+    print("labels", labels)
+    print("sim_matrix", sim_matrix)
+    loss = tf.keras.losses.binary_crossentropy(y_true=labels, y_pred=sim_matrix, from_logits=True)
+    return tf.reduce_mean(loss)
 
 def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hyperparams: dict = None):
     print("Starting training...")
