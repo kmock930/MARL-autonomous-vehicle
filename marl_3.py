@@ -44,6 +44,7 @@ sys.path.append(SIMPLEGRID_PATH)
 from simple_grid import SimpleGridEnv
 from agent import Agent  # Import the Agent class
 import pandas as pd
+import datetime
 
 FREE: int = 0
 OBSTACLE_SOFT: int = 1
@@ -292,10 +293,11 @@ def contrastive_loss(messages, positive_pairs, temperature=0.1):
     messages = tf.keras.layers.Lambda(lambda x: tf.math.l2_normalize(x, axis=1))(messages)
     sim_matrix = tf.matmul(messages, messages, transpose_b=True) / temperature
     labels = tf.one_hot(positive_pairs, depth=len(messages))
-    loss = tf.keras.losses.CategoricalCrossentropy(from_logits=True)(labels, sim_matrix)
+    loss = tf.keras.losses.binary_crossentropy(from_logits=True)(labels, sim_matrix)
     return loss
 
 def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hyperparams: dict = None):
+    print("Starting training...")
     # Logging
     episode_rewards = []
     episode_losses = []
@@ -319,6 +321,7 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hype
 
     episodes = episodes if (episodes is not None or episodes > 0) else max_episodes
     for episode in range(episodes):
+        print(f"\nEpisode {episode + 1}/{episodes}")
         # Reset the environment
         obs = env.reset()
         leader_pos = env.leaders[0]['position']
@@ -342,6 +345,7 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hype
         entropy_bonus = 0  # Initialize entropy_bonus to avoid UnboundLocalError
         loss = 0  # Initialize loss to avoid UnboundLocalError
         for step in range(max_step_per_episode):  # Limit the number of steps per episode
+            print(f"Step {step + 1}/{max_step_per_episode}")
             # Leader generates a message and takes an action
             leader_message = get_leader_message(leader_pos, env)
             leader_message.append(-1)
@@ -443,6 +447,9 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hype
             grads = tape.gradient(loss, leader_model.trainable_variables + follower_model.trainable_variables)
             optimizer.apply_gradients(zip(grads, leader_model.trainable_variables + follower_model.trainable_variables))
 
+        avg_reward = total_reward / max_step_per_episode  # Calculate average reward
+        print(f"Episode {episode + 1}: Average Reward: {avg_reward:.2f}")  # Log average reward
+
         # Log metrics for the episode
         episode_rewards.append(total_reward)
         episode_losses.append(float(loss))
@@ -456,6 +463,7 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hype
         episode_logs.append({
             "episode": episode + 1,
             "reward": total_reward,
+            "avg_reward": avg_reward,
             "policy_loss": float(loss),
             "contrastive_loss": float(mappo_model.compute_loss(
                 state_leader=np.array(leader_message[:8]),
@@ -487,6 +495,18 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hype
     if not os.path.exists('logs'):
         os.mkdir('logs')
     FILENAME = "evaluation_metrics.csv"
+
+    # Add timestamp and number of episodes to the logs
+    logs_df['timestamp'] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    logs_df['num_episodes'] = episodes
+
+    # Append to the file if it exists, otherwise create a new one
+    file_path = f"logs/{FILENAME}"
+    if os.path.exists(file_path):
+        logs_df.to_csv(file_path, mode='a', header=False, index=False)
+    else:
+        logs_df.to_csv(file_path, index=False)
+    
     logs_df.to_csv(f"logs/{FILENAME}", index=False)
     print(f"Training logs exported to '{FILENAME}'")
 
