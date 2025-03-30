@@ -13,7 +13,11 @@ import tensorflow as tf
 import random
 
 def main(): # main pipeline goes here
-
+    # Remove the evaluation CSV if it exists
+    CSVPATH = 'logs/evaluation.csv'
+    if os.path.exists(CSVPATH):
+        os.remove(CSVPATH)
+    
     # Tracking GPU
     tf.debugging.set_log_device_placement(True)
 
@@ -42,13 +46,13 @@ def main(): # main pipeline goes here
     encoder_decoder.save('models/policy_network_RAW.h5')
 
     # Define Hyperparameter Grid
-    HYPERPARAMETER_COUNT = 1
+    HYPERPARAMETER_COUNT = 2
     learning_rates = [round(random.uniform(0.0001, 0.01), 6) for _ in range(HYPERPARAMETER_COUNT)]
     episodes_list = [50] # Now we only consider a static number of episodes for simplicity
     contrastive_weights = [round(random.uniform(0.1, 1.0), 2) for _ in range(HYPERPARAMETER_COUNT)]
     reconstruction_weights = [round(random.uniform(0.1, 0.5), 2) for _ in range(HYPERPARAMETER_COUNT)]
     entropy_weights = [round(random.uniform(0.01, 0.1), 3) for _ in range(HYPERPARAMETER_COUNT)]
-    max_steps_list = [random.choice([50, 100, 200]) for _ in range(HYPERPARAMETER_COUNT)]
+    max_steps_list = [100]
 
     best_score = -float('inf')
     best_params = None
