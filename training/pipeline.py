@@ -5,7 +5,7 @@ sys.path.append(ROOT_PATH)
 SIMPLEGRID_PATH = os.path.abspath(os.path.join(ROOT_PATH, 'gym-simplegrid', 'gym_simplegrid', 'envs'))
 sys.path.append(SIMPLEGRID_PATH)
 from simple_grid import SimpleGridEnv
-from marl_3 import train_MAPPO, encoder_decoder, leader_policy, follower_policy
+from marl_3 import train_MAPPO, encoder, decoder, leader_policy, follower_policy
 import time
 import tensorflow as tf
 
@@ -41,9 +41,15 @@ def main(): # main pipeline goes here
         os.mkdir('models')
 
     # Load and Save the pretrained RAW models
-    leader_policy.save('models/leader_model_RAW.h5')
-    follower_policy.save('models/follower_model_RAW.h5')
-    encoder_decoder.save('models/policy_network_RAW.h5')
+    leader_policy.save('models/leader_policy_RAW.h5')
+    follower_policy.save('models/follower_policy_RAW.h5')
+    encoder.save('models/encoder.h5')
+    decoder.save('models/decoder.h5')
+
+    # Compile the models
+    leader_policy.compile(optimizer='adam', loss='mse')
+    follower_policy.compile(optimizer='adam', loss='mse')
+    encoder.compile(optimizer='adam', loss='mse')
 
     # Define Hyperparameter Grid
     HYPERPARAMETER_COUNT = 2
@@ -84,7 +90,8 @@ def main(): # main pipeline goes here
                                 episodes=episodes,
                                 leader_model=leader_policy,
                                 follower_model=follower_policy,
-                                encoded_model=encoder_decoder,  # Corrected argument name
+                                encoder=encoder,
+                                decoder=decoder,
                                 env=env,
                                 hyperparams=params
                             )
@@ -103,7 +110,8 @@ def main(): # main pipeline goes here
                                 # Save the best models
                                 leader_policy.save('models/best_leader_model.h5')
                                 follower_policy.save('models/best_follower_model.h5')
-                                encoder_decoder.save('models/best_policy_network.h5')
+                                encoder.save('models/best_encoder_model.h5')
+                                decoder.save('models/best_decoder_model.h5')
                                 print(f"Best models are saved.")
 
             endTimeInEpisode = time.time()
