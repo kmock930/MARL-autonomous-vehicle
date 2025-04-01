@@ -43,16 +43,17 @@ def main(): # main pipeline goes here
     # Load and Save the pretrained RAW models
     leader_policy.save('models/leader_policy_RAW.h5')
     follower_policy.save('models/follower_policy_RAW.h5')
-    encoder.save('models/encoder.h5')
-    decoder.save('models/decoder.h5')
+    encoder.save('models/encoder_RAW.h5')
+    decoder.save('models/decoder_RAW.h5')
 
     # Compile the models
-    leader_policy.compile(optimizer='adam', loss='mse')
-    follower_policy.compile(optimizer='adam', loss='mse')
-    encoder.compile(optimizer='adam', loss='mse')
+    leader_policy.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError())
+    follower_policy.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError())
+    encoder.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError())
+    decoder.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError())
 
     # Define Hyperparameter Grid
-    HYPERPARAMETER_COUNT = 2
+    HYPERPARAMETER_COUNT = 3
     learning_rates = [round(random.uniform(0.0001, 0.01), 6) for _ in range(HYPERPARAMETER_COUNT)]
     episodes_list = [50] # Now we only consider a static number of episodes for simplicity
     contrastive_weights = [round(random.uniform(0.1, 1.0), 2) for _ in range(HYPERPARAMETER_COUNT)]
