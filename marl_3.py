@@ -140,15 +140,18 @@ def get_leader_message(pos: tuple[int, int], env: SimpleGridEnv):
     Returns:
         list: A message containing information about the environment around the leader.
         
-        # Message structure :
+        # Message structure:
 
-        # - Distance to the nearest obstacle (obs_dist): int or float
         # - Relative position of the goal (xg): int, -1 if goal is not in partial observability.
         # - Relative position of the goal (yg): int, -1 if goal is not in partial observability.
-        # - Whether the path is clear or blocked(path_blocked): 0/1 int
-        # - Leader's action (action): int
+        # - Distance to the nearest obstacle (obs_dist): int or float
+        # - Whether the path is clear or blocked (path_blocked): 0/1 int
         # - Leader can observe the follower or not (follower_visibility): 0/1 int
-        # - Leaders distance to follower (follower_dist): float
+        # - Leader's distance to follower (follower_dist): float
+        # - Leader's suggested action in x direction (action_dx): int
+        # - Leader's suggested action in y direction (action_dy): int
+        # - Leader's current x position (x): int
+        # - Leader's current y position (y): int
 
     Author:
         Kimia
@@ -159,6 +162,7 @@ def get_leader_message(pos: tuple[int, int], env: SimpleGridEnv):
     obstacles_pos, distances = [], []
     path_blocked = 0  # Path is not blocked initially
     xg, yg = (-1, -1)  # Default goal position
+    action_dx, action_dy = 0, 0  # Default action
 
     for dx in range(-2, 3):
         for dy in range(-2, 3):
@@ -170,6 +174,7 @@ def get_leader_message(pos: tuple[int, int], env: SimpleGridEnv):
                     # Relative position to the goal
                     if env.targets[nx, ny] == env.TARGET:
                         xg, yg = nx, ny
+                        action_dx, action_dy = dx, dy
 
                 # Leader can see follower
                 if any(agent['position'] == (nx, ny) and agent.get('role') == 'follower' for agent in env.agents):
@@ -187,37 +192,48 @@ def get_leader_message(pos: tuple[int, int], env: SimpleGridEnv):
     if len(obstacles_pos) == counter:
         path_blocked = 1
 
-    return [xg, yg, obs_dist, follower_visibility, follower_dist, path_blocked]
+    return [xg, yg, obs_dist, follower_visibility, follower_dist, path_blocked, action_dx, action_dy, x, y]
 
 # LSTM
-def build_encoder_decoder():
-    input_layer = tf.keras.layers.Input(shape=(8,))
-    reshaped = tf.keras.layers.Reshape((1, 8))(input_layer)
+def build_encoder():
+    input_layer = tf.keras.layers.Input(shape=(10,))
+    reshaped = tf.keras.layers.Reshape((1, 10))(input_layer)
     x = tf.keras.layers.LSTM(64, return_sequences=True)(reshaped)
-    x = tf.keras.layers.LSTM(32)(x)
-    output_layer = tf.keras.layers.Dense(8, activation="linear")(x)
-    return tf.keras.models.Model(input_layer, output_layer)
+    latent = tf.keras.layers.LSTM(32)(x)
+    return tf.keras.models.Model(input_layer, latent, name="encoder")
 
-encoder_decoder = build_encoder_decoder()
+def build_decoder():
+    latent_input = tf.keras.layers.Input(shape=(32,))
+    x = tf.keras.layers.RepeatVector(1)(latent_input)
+    x = tf.keras.layers.LSTM(64, return_sequences=True)(x)
+    x = tf.keras.layers.LSTM(64)(x)
+    output_layer = tf.keras.layers.Dense(10, activation="linear")(x)
+    return tf.keras.models.Model(latent_input, output_layer, name="decoder")
+
+encoder = build_encoder()
+decoder = build_decoder()
 
 # MLP MAPPO
 def build_policy_network():
-    input_layer = tf.keras.layers.Input(shape=(8,))
+    input_layer = tf.keras.layers.Input(shape=(10,))
+    reshaped = tf.keras.layers.Reshape((1, 10))(input_layer)
     # hidden layers
-    x = tf.keras.layers.Dense(64, activation="relu")(input_layer)
+    x = tf.keras.layers.Dense(64, activation="relu")(reshaped)
     x = tf.keras.layers.Dense(64, activation="relu")(x)
     # output layer
     output_layer = tf.keras.layers.Dense(len(ACTION_SPACE), activation="softmax")(x)
+    output_layer = tf.keras.layers.Reshape((len(ACTION_SPACE),))(output_layer)
     return tf.keras.models.Model(input_layer, output_layer)
 
 leader_policy = build_policy_network()
 follower_policy = build_policy_network()
 
 class MAPPO:
-    def __init__(self, leader_model, follower_model, encoded_model, lr=0.001):
+    def __init__(self, leader_model, follower_model, encoder, decoder, lr=0.001):
         self.leader_model = leader_model
         self.follower_model = follower_model
-        self.encoded_model = encoded_model
+        self.encoder = encoder
+        self.decoder = decoder
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
 
     def compute_loss(self, state_leader, decoded_msg, action_leader, action_follower, reward, leader_message, encoded_message, decoded_message, hyperparams: dict = None):
@@ -245,7 +261,7 @@ class MAPPO:
         print('Policy Gradient Loss', policy_loss)
         
         # Contrastive Loss (CACL) for Communication Alignment
-        contrastive_loss_value = contrastive_loss(tf.convert_to_tensor([encoded_message]), positive_pairs=[0])
+        contrastive_loss_value = contrastive_loss(tf.convert_to_tensor([action_prob_follower]), positive_pairs=[0])
         print('Contrastive Loss', contrastive_loss_value)
 
         # Message Reconstruction Loss (L_recon)
@@ -316,7 +332,7 @@ def contrastive_loss(messages, positive_pairs, temperature=0.1):
     loss = tf.keras.losses.binary_crossentropy(y_true=labels, y_pred=sim_matrix, from_logits=True)
     return tf.reduce_mean(loss)
 
-def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hyperparams: dict = None):
+def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, hyperparams: dict = None):
     print("Starting training...")
     # Logging
     episode_rewards = []
@@ -337,7 +353,7 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hype
     collision_count = 0
 
     # Initialize MAPPO model
-    mappo_model = MAPPO(leader_model, follower_model, encoded_model, lr)
+    mappo_model = MAPPO(leader_model, follower_model, encoder, decoder, lr)
 
     episodes = episodes if (episodes is not None or episodes > 0) else max_episodes
     for episode in range(episodes):
@@ -368,9 +384,9 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hype
             print(f"Step {step + 1}/{max_step_per_episode}")
             # Leader generates a message and takes an action
             leader_message = get_leader_message(leader_pos, env)
-            leader_message.append(-1)
-            leader_message.append(-1)
-            leader_action_probs = leader_model.predict(np.array(leader_message[:8]).reshape(1, -1))
+            leader_message.append(-1)  # Placeholder for additional data if needed
+            leader_message.append(-1)  # Placeholder for additional data if needed
+            leader_action_probs = leader_model.predict(np.array(leader_message[:10]).reshape(1, -1))
             leader_action = list(ACTION_SPACE)[np.argmax(leader_action_probs)]
             leader_message[6], leader_message[7] = leader_action.value
 
@@ -379,8 +395,8 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hype
             new_leader_pos = info['agent_positions'][0]
 
             # Encode and decode the leader's message
-            encoded_msg = encoded_model.predict(np.array(leader_message[:8]).reshape(1, -1))
-            decoded_msg = encoded_msg.reshape(-1)
+            encoded_msg = encoder.predict(np.array(leader_message[:10]).reshape(1, -1))
+            decoded_msg = decoder.predict(encoded_msg)
 
             # Follower takes an action based on the decoded message
             follower_action_probs = follower_model.predict(decoded_msg.reshape(1, -1))
@@ -444,20 +460,20 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hype
             # Compute reconstruction loss
             reconstruction_loss = tf.reduce_mean(
                 tf.keras.losses.MSE(
-                    np.array(leader_message[:8]), 
+                    np.array(leader_message[:10]), 
                     decoded_msg
                 )
             )
 
             # Compute entropy bonus
-            action_prob_leader = leader_model.predict(np.array(leader_message[:8]).reshape(1, -1))
+            action_prob_leader = leader_model.predict(np.array(leader_message[:10]).reshape(1, -1))
             entropy_bonus = -tf.reduce_mean(action_prob_leader * tf.math.log(action_prob_leader + 1e-8))
 
-            mappo_model = MAPPO(leader_model, follower_model, encoded_model)
+            mappo_model = MAPPO(leader_model, follower_model, encoder, decoder, lr)
             print("mappo")
             with tf.GradientTape() as tape:
                 loss = mappo_model.compute_loss(
-                    np.array(leader_message[:8]), decoded_msg,
+                    np.array(leader_message[:10]), decoded_msg,
                     leader_action, follower_action, reward,
                     leader_message, encoded_msg, decoded_msg
                 )
@@ -486,7 +502,7 @@ def train_MAPPO(episodes, leader_model, follower_model, encoded_model, env, hype
             "avg_reward": avg_reward,
             "policy_loss": float(loss),
             "contrastive_loss": float(mappo_model.compute_loss(
-                state_leader=np.array(leader_message[:8]),
+                state_leader=np.array(leader_message[:10]),
                 decoded_msg=decoded_msg,
                 action_leader=leader_action,
                 action_follower=follower_action,
@@ -559,7 +575,7 @@ if __name__ == "main":
   print(follower_pos)
   print(target_pos)
 
-  train_MAPPO(2, leader_policy, follower_policy, encoder_decoder,leader_pos, target_pos, follower_pos, {"lr": 0.001})
+  train_MAPPO(2, leader_policy, follower_policy, encoder,leader_pos, target_pos, follower_pos, {"lr": 0.001})
 
   x,y = leader_pos[0]
   env[x,y]
