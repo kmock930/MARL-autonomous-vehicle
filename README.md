@@ -63,33 +63,49 @@ Example:
 - Leaders distance to follower (follower_dist): float
 - Sample: 
 [-1, -1, np.float64(2.0), 1, np.float64(1.4142135623730951), 0]
-#### Leader-Follower (encoder-decoder) Model
+#### Encoder Model - for the Leader agent
 
-| Layer (type)       | Output Shape | Param # |
-|---------------------|--------------|---------|
-| input_layer_4       | (None, 8)    | 0       |
-| dense_10 (Dense)    | (None, 64)   | 576     |
-| dense_11 (Dense)    | (None, 64)   | 4,160   |
-| dense_12 (Dense)    | (None, 9)    | 585     |
+| Layer (type)       | Output Shape   | Param #  |
+|---------------------|----------------|----------|
+| input_layer         | (None, 10)    | 0        |
+| reshape             | (None, 1, 10) | 0        |
+| lstm                | (None, 1, 64) | 19,200   |
+| lstm_1              | (None, 32)    | 12,416   |
 
- * Total params: 5,321 (20.79 KB)
- * Trainable params: 5,321 (20.79 KB)
+ * Total params: 31,616 (123.50 KB)
+ * Trainable params: 31,616 (123.50 KB)
  * Non-trainable params: 0 (0.00 B)
- * Prediction: Outputs an array of 9 values, representing the probabilities of each possible action. 
+ * Prediction: Outputs an array of 32 values, representing the encoded leader's message communicating to the follower agents.
+
+ #### Decoder Model - for the Follower agent
+
+| Layer (type)              | Output Shape   | Param #  |
+|---------------------------|----------------|----------|
+| input_layer_1 (InputLayer)| (None, 32)     | 0        |
+| repeat_vector (RepeatVector)| (None, 1, 32)| 0        |
+| lstm_2 (LSTM)             | (None, 1, 64) | 24,832   |
+| lstm_3 (LSTM)             | (None, 64)    | 33,024   |
+| dense (Dense)             | (None, 10)    | 650      |
+ 
+ * Total params: 58,506 (228.54 KB)
+ * Trainable params: 58,506 (228.54 KB)
+ * Non-trainable params: 0 (0.00 B)
+ * Prediction: Outputs an array of 10 values, representing the probabilities of each possible action. 
 
  #### Policy Network Model
  * Evaluates the best move for an agent.
 
-| Layer (type)           | Output Shape | Param #  |
-|-------------------------|--------------|----------|
-| input_layer_5          | (None, 8)    | 0        |
-| reshape_1              | (None, 1, 8) | 0        |
-| lstm_2 (LSTM)          | (None, 1, 64)| 18,688   |
-| lstm_3 (LSTM)          | (None, 32)   | 12,416   |
-| dense_13 (Dense)       | (None, 8)    | 264      |
+| Layer (type)           | Output Shape   | Param #  |
+|-------------------------|----------------|----------|
+| input_layer_27         | (None, 10)     | 0        |
+| reshape_48             | (None, 1, 10)  | 0        |
+| dense_71 (Dense)       | (None, 1, 64)  | 704      |
+| dense_72 (Dense)       | (None, 1, 64)  | 4,160    |
+| dense_73 (Dense)       | (None, 1, 9)   | 585      |
+| reshape_49             | (None, 9)      | 0        |
 
- * Total params: 31,368 (122.53 KB)
- * Trainable params: 31,368 (122.53 KB)
+ * Total params: 5,449 (21.29 KB)
+ * Trainable params: 5,449 (21.29 KB)
  * Non-trainable params: 0 (0.00 B)
  * Input should include:
 1. Agent's Position: The (x, y) coordinates of the agent in the grid.
