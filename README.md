@@ -116,5 +116,9 @@ Example:
 6. Distance to Follower: A scalar value representing the distance between the leader and the follower.
  * Encoded Message is a compressed version of the leader's message which consists of 8 values in an array. 
 
+ ## Evaluations
+ * Run the [`evaluation.py`](./training/evaluation.py) script to plot nicely looking graphs based on metrics we recorded during training. 
+ * On your terminal, change directory into `training/`, and then run `tensorboard --logdir=logs/train`. Open `http://localhost:6006/` or the port it opens to in order to view GPU consumption statistics.
+
  ## Execution Guide
 * [**TMUX**](tmux.md) for idling long executions
