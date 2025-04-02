@@ -50,7 +50,7 @@ Example:
 `Step: 5, Agent Position: (2, 3), Reward: -1, Done: False, Action: (1, 0)`
 
 ### Visual Representation for debugging
-![alt text](<env_human_render.jpg>)
+![alt text](<env_human_render.png>)
 
 ### Algorithms
 #### Leader's Message
