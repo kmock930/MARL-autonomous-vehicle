@@ -756,7 +756,7 @@ if __name__ == "__main__":
         num_robots=2,
         tetherDist=1,
         num_leaders=1,
-        num_target=2
+        num_target=1
     )
     env.reset()
     env.render()
