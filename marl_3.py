@@ -332,7 +332,7 @@ def contrastive_loss(messages, positive_pairs, temperature=0.1):
     loss = tf.keras.losses.binary_crossentropy(y_true=labels, y_pred=sim_matrix, from_logits=True)
     return tf.reduce_mean(loss)
 
-def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, hyperparams: dict = None):
+def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, hyperparams: dict = None, algorithm="MAPPO"):
     print("Starting training...")
     # Logging
     episode_rewards = []
@@ -535,6 +535,8 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, h
     # Add timestamp and number of episodes to the logs
     logs_df['timestamp'] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     logs_df['num_episodes'] = episodes
+
+    logs_df['algorithm'] = algorithm
 
     # Append to the file if it exists, otherwise create a new one
     file_path = f"logs/{FILENAME}"

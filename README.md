@@ -61,8 +61,12 @@ Example:
 - Leader's action (action): int
 - Leader can observe the follower or not (follower_visibility): 0/1 int
 - Leaders distance to follower (follower_dist): float
-- Sample: 
-[-1, -1, np.float64(2.0), 1, np.float64(1.4142135623730951), 0]
+- Leader's suggested action in x direction (action_dx): int
+- Leader's suggested action in y direction (action_dy): int
+- Leader's current x position (x): int
+- Leader's current y position (y): int
+- Sample: [-1, -1, -1, 1, np.float64(1.4142135623730951), 0, 0, 0, 9, 9]
+
 #### Encoder Model - for the Leader agent
 
 | Layer (type)       | Output Shape   | Param #  |
@@ -107,14 +111,7 @@ Example:
  * Total params: 5,449 (21.29 KB)
  * Trainable params: 5,449 (21.29 KB)
  * Non-trainable params: 0 (0.00 B)
- * Input should include:
-1. Agent's Position: The (x, y) coordinates of the agent in the grid.
-2. Relative Position of the Goal: The relative position of the goal (xg, yg) with respect to the agent. If the goal is not visible, these values can be set to -1.
-3. Distance to the Nearest Obstacle: A scalar value representing the distance to the nearest obstacle.
-4. Path Blocked Indicator: A binary value (0 or 1) indicating whether the path is blocked by obstacles.
-5. Follower Visibility: A binary value (0 or 1) indicating whether the leader can observe the follower.
-6. Distance to Follower: A scalar value representing the distance between the leader and the follower.
- * Encoded Message is a compressed version of the leader's message which consists of 8 values in an array. 
+ * Input should include the encoded message, which is a compressed version of the leader's message with 10 values in an array. 
 
  ## Evaluations
  * Run the [`evaluation.py`](./training/evaluation.py) script to plot nicely looking graphs based on metrics we recorded during training. 
