@@ -50,7 +50,9 @@ Example:
 `Step: 5, Agent Position: (2, 3), Reward: -1, Done: False, Action: (1, 0)`
 
 ### Visual Representation for debugging
-![alt text](<env_human_render.png>)
+![Visual Representation](<env_human_render.png>)
+View more states in a simulated game in this directory: `Simulations/`.
+You might need to run the script `runtime-environment.py` to see how a game runs.
 
 ### Algorithms
 #### Leader's Message
