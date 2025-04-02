@@ -1,12 +1,14 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
+import tensorflow as tf
+from google.protobuf.json_format import MessageToJson
 TRAINING_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 
 # Load the saved logs
 logs_df = pd.read_csv(os.path.join(TRAINING_PATH, "logs/evaluation_metrics.csv"))
 
-def plot_metrics(logs_df, metric_name, constant_metric, ylabel):
+def plot_metrics(logs_df, metric_name, constant_metric, isSaved=False, isShow=False):
     if (metric_name not in logs_df.columns):
         raise ValueError(f"Specific metric '{metric_name}' not found in logs DataFrame.")
     if (metric_name == constant_metric):
@@ -18,13 +20,15 @@ def plot_metrics(logs_df, metric_name, constant_metric, ylabel):
     plt.ylabel(metric_name)
     plt.legend()
     
-    output_dir = os.path.join(TRAINING_PATH, "Plots")
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, f"{metric_name}_plot.png")
-    plt.savefig(output_path)
-    print(f"Plot saved to {output_path}")
+    if isSaved:
+        output_dir = os.path.join(TRAINING_PATH, "Plots")
+        os.makedirs(output_dir, exist_ok=True)
+        output_path = os.path.join(output_dir, f"{metric_name}_plot.png")
+        plt.savefig(output_path)
+        print(f"Plot saved to {output_path}")
 
-    plt.show()
+    if isShow:
+        plt.show()
     plt.close()
 
 if __name__ == "__main__":
@@ -37,5 +41,6 @@ if __name__ == "__main__":
                 logs_df=logs_df, 
                 metric_name=metric, 
                 constant_metric=constant_metric, 
-                ylabel=metric.replace("_", " ").title()
+                isSaved=True,
+                isShow=False
             )
