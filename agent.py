@@ -1,6 +1,5 @@
 import numpy as np
 import sys
-sys.path.append('gym-simplegrid')
 import os
 SIMPLEGRID_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), 'gym-simplegrid', 'gym_simplegrid', 'envs'))
 sys.path.append(SIMPLEGRID_PATH)
@@ -16,7 +15,7 @@ class Agent:
     position: tuple[int, int] # Position of the agent
     action_space: list[tuple[int, int]] # Action space of the agent
     env: SimpleGridEnv # Environment of the agent
-    message: np.ndarray | tf.Tensor # Encoded message from the encoder-decoder
+    message: np.ndarray | tf.Tensor = None # Encoded message from the encoder-decoder
 
     # Algorithms
     encoder: tf.keras.Model
@@ -79,7 +78,9 @@ class Agent:
             if (message is None):
                 # Empty message
                 self.message = np.zeros((1, 32))
-            self.listen(message)
+            else: 
+                self.listen(message)
+            
             # follower decide based on message
             # Ensure combined_input matches the expected input shape of the follower policy
             combined_input = np.concatenate((observation, self.message), axis=1)
