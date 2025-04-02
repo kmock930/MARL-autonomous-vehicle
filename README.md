@@ -116,6 +116,7 @@ Example:
  ## Evaluations
  * Run the [`evaluation.py`](./training/evaluation.py) script to plot nicely looking graphs based on metrics we recorded during training. 
  * On your terminal, change directory into `training/`, and then run `tensorboard --logdir=logs/train`. Open `http://localhost:6006/` or the port it opens to in order to view GPU consumption statistics.
+ * On your terminal, install the `coverage` python package with this command: `pip install coverage`, and then run a coverage report w.r.t particular test files in `test/` directory to see how our unit tests cover our codes: `coverage run test_file1.py test_file2.py`.
 
  ## Execution Guide
 * [**TMUX**](tmux.md) for idling long executions
