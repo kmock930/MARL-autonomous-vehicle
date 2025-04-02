@@ -9,94 +9,110 @@ from simple_grid import SimpleGridEnv
 import tensorflow as tf
 
 class Agent:
-    _id_counter = 1  # Class-level counter for auto-assigning agent IDs
+    _id_counter = 0  # Class-level counter for auto-assigning agent IDs
 
     agent_id: int # Unique identifier of the agent
     role: str # Role of the agent
     position: tuple[int, int] # Position of the agent
     action_space: list[tuple[int, int]] # Action space of the agent
     env: SimpleGridEnv # Environment of the agent
-    encoded_message: np.ndarray # Encoded message from the encoder-decoder
+    message: np.ndarray | tf.Tensor # Encoded message from the encoder-decoder
 
     # Algorithms
-    encoder_decoder: tf.keras.Model
-    policy_network: tf.keras.Model
+    encoder: tf.keras.Model
+    decoder: tf.keras.Model
+    leader_policy: tf.keras.Model
+    follower_policy: tf.keras.Model
 
-    def __init__(self, env, role: str, encoder_decoder: tf.keras.Model, policy_network: tf.keras.Model):
+    def __init__(self, role: str):
         """
         Generalized Agent class for interacting with the SimpleGridEnv.
         
         Parameters:
-        - env: SimpleGridEnv instance
         - role: String indicator of the agent's role (leader or follower)
-        - encoder_decoder: tf.keras.Model (trained)
-        - policy_network: tf.keras.Model (trained)
         """
-        self.env = env
         self.role = role
         self.action_space = [action.value for action in ACTION_SPACE]
 
         # Auto Assigning an Agent ID
         self.agent_id = Agent._id_counter
-        Agent._id_counter += 1
-                
-        # Ensure agent_id is within bounds
-        if self.agent_id >= len(self.env.agents):
-            raise IndexError(f"Agent ID {self.agent_id} is out of bounds for the environment's agents list.")
         
-        # Extract position from the environment
-        self.position = self.env.agents[self.agent_id]['position']
+        # Increment the counter for the next agent
+        Agent._id_counter += 1
 
-        # Load models from Parameters
-        self.encoder_decoder = encoder_decoder
-        self.policy_network = policy_network
-    
-    def act(self, observation: np.ndarray) -> tuple[int, int]:
+        # Load and Compile models from Parameters
+        self.encoder = tf.keras.models.load_model(os.path.join("training", "models", "best_encoder_model.h5"))
+
+        self.decoder = tf.keras.models.load_model(os.path.join("training", "models", "best_decoder_model.h5"))
+
+        self.leader_policy = tf.keras.models.load_model(os.path.join("training", "models", "best_leader_model.h5"))
+
+        self.follower_policy = tf.keras.models.load_model(os.path.join("training", "models", "best_follower_model.h5"))
+
+    def act(self, observation: np.ndarray, message: np.ndarray | tf.Tensor = None) -> tuple[int, int]:
         """
-
         Args:
-            observation (np.ndarray): partial obersevation of the environment
+            observation (np.ndarray): partial observation of the environment
 
         Returns:
             tuple[int, int]: an action to be taken by the agent
         """
-        # TODO: Not Implemented
+        # Flatten the grid observation to a 1D array
+        observation = observation.flatten()
+
+        # Ensure the observation has exactly 10 elements
+        if observation.size < 10:
+            # Pad with zeros if the observation has fewer than 10 elements
+            observation = np.pad(observation, (0, 10 - observation.size), mode='constant')
+        elif observation.size > 10:
+            # Truncate if the observation has more than 10 elements
+            observation = observation[:10]
+
+        # Reshape observation to include batch dimension
+        observation = observation.reshape(1, -1)
+        
         if (self.role == "leader"):
-            self.speak()
+            self.message = self.speak()
+            # Leader decide based on observation
+            predictions = self.leader_policy.predict(observation)
         else:
-            self.listen()
-        # default: take a random action
-        return self.action_space[np.random.choice(len(self.action_space))]
+            if (message is None):
+                # Empty message
+                self.message = np.zeros((1, 32))
+            self.listen(message)
+            # follower decide based on message
+            # Ensure combined_input matches the expected input shape of the follower policy
+            combined_input = np.concatenate((observation, self.message), axis=1)
+            combined_input = combined_input[:, :10]  # Adjust to match the expected shape
+            predictions = self.follower_policy.predict(combined_input)
+        
+        # Take action with best probability
+        if (type(predictions) == tf.Tensor):
+            predictions = predictions.numpy()
+        action = int(np.argmax(predictions))
+        print(f"Action: {action}; Movement: {list(ACTION_SPACE)[action].name}")
+        print(f"Movement Value: {list(ACTION_SPACE)[action].value}")
+        return list(ACTION_SPACE)[action].value
     
     def listen(self, message: np.ndarray) -> None:
         """
-
         Args:
             message (dict): message from the leader agent
         """
         if (self.role == "follower"):
-            # should take encoder's message and return decoder's output
-            self.encoded_message = message
-            self.encoder_decoder.predict(message)
+            self.message = self.decoder.predict(message)
         else:
             raise ValueError("Leader cannot listen")
     
-    def speak(self) -> list:
+    def speak(self) -> np.ndarray:
         """
-
         Returns:
             dict: message to be sent to the follower agent
         """
         if (self.role == "leader"):
             # should return encoder's output
-            NotImplementedError("Leader agent does not speak")
+            dummy_input = tf.random.normal((1, 10))
+            encoded_message = self.encoder.predict(dummy_input)
+            return encoded_message
         else:
             ValueError("Follower cannot speak")
-
-    # util functions
-    # LEADER
-    def isLeader(self, pos):
-        return self.env[pos] == self.env.AGENT and self.env.agents['role'] == 'leader'
-    # FOLLOWER
-    def isFollower(self, pos):
-        return self.env[pos] == self.env.AGENT and self.env.agents['role'] == 'follower'
