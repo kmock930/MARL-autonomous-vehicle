@@ -118,7 +118,7 @@ Example:
 
  ## Evaluations
  * Run the [`evaluation.py`](./training/evaluation.py) script to plot nicely looking graphs based on metrics we recorded during training. 
- * On your terminal, change directory into `training/`, and then run `tensorboard --logdir=logs/train`. Open `http://localhost:6006/` or the port it opens to in order to view GPU consumption statistics.
+ * On your terminal, change directory into `training/`, and then run `tensorboard --logdir=logs`. Open `http://localhost:6006/` or the port it opens to in order to view GPU consumption statistics.
 
  ## Execution Guide
 * [**TMUX**](tmux.md) for idling long executions
