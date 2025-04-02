@@ -53,7 +53,7 @@ def main(): # main pipeline goes here
     decoder.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError())
 
     # Define Hyperparameter Grid
-    HYPERPARAMETER_COUNT = 3
+    HYPERPARAMETER_COUNT = 2
     learning_rates = [round(random.uniform(0.0001, 0.01), 6) for _ in range(HYPERPARAMETER_COUNT)]
     episodes_list = [50] # Now we only consider a static number of episodes for simplicity
     contrastive_weights = [round(random.uniform(0.1, 1.0), 2) for _ in range(HYPERPARAMETER_COUNT)]
