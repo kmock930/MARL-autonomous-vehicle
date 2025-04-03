@@ -80,6 +80,7 @@ def main(): # main pipeline goes here
 
     algoStartTime = time.time()
 
+    training_count = highest_reward_training =1 # count of trainings done
     # Perform Hyperparameter Tuning with Grid Search
     for lr in learning_rates:
         for episodes in episodes_list:
@@ -116,14 +117,22 @@ def main(): # main pipeline goes here
 
                             # Evaluate the models (e.g., based on cumulative reward or success rate)
                             # Retrieve cumulative reward from the environment's info
-                            success_rate = env.get_info().get('cumulative_reward', 0)
+                            curr_cumulative_reward = env.get_info().get('cumulative_reward', 0)
 
-                            print(f"Success Rate: {success_rate}")
+                            print(f"Cumulative Reward in training {training_count}: {curr_cumulative_reward}")
 
                             # Save the best model
-                            if success_rate > best_score:
-                                best_score = success_rate
-                                best_params = {"lr": lr, "episodes": episodes}
+                            if curr_cumulative_reward > best_score:
+                                best_score = curr_cumulative_reward
+                                highest_reward_training = training_count
+                                best_params = {
+                                    "lr": lr, 
+                                    "episodes": episodes,
+                                    "contrastive_weight": contrastive_weight,
+                                    "reconstruction_weight": reconstruction_weight,
+                                    "entropy_weight": entropy_weight,
+                                    "max_steps": max_steps
+                                }
 
                                 # Save the best models
                                 leader_policy.save('models/best_leader_model.h5')
@@ -140,8 +149,9 @@ def main(): # main pipeline goes here
     print(f"Time taken for the entire pipeline process is: {endTime - startTime} seconds")
 
     # Print Best Hyperparameters
-    print(f"Best Hyperparameters: {best_params}") # dict: best learning rate + episode
-    print(f"Best Success Rate: {best_score}") # best success rate
+    print(f"Total Training Processes: {training_count}") # total training count
+    print(f"Best Set of Hyperparameters in Training Process {highest_reward_training}: {best_params}") # dict: best learning rate + episode
+    print(f"Highest Cumulative Reward in Training Process {highest_reward_training}: {best_score}") # best success rate
 
     print(f"✅ Completed the training pipeline successfully.")
 
