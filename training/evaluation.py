@@ -1,8 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
-import tensorflow as tf
-from google.protobuf.json_format import MessageToJson
 TRAINING_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 
 # Load the saved logs
@@ -14,7 +12,7 @@ def plot_metrics(logs_df, metric_name, constant_metric, isSaved=False, isShow=Fa
     if (metric_name == constant_metric):
         raise ValueError(f"The '{metric_name}' column cannot be plotted as a metric against itself.")
 
-    plt.plot(logs_df["episode"], logs_df[metric_name], label=metric_name)
+    plt.plot(logs_df[constant_metric], logs_df[metric_name], label=metric_name)
     plt.title(f"{metric_name} over {constant_metric}")
     plt.xlabel(constant_metric)
     plt.ylabel(metric_name)
@@ -23,7 +21,7 @@ def plot_metrics(logs_df, metric_name, constant_metric, isSaved=False, isShow=Fa
     if isSaved:
         output_dir = os.path.join(TRAINING_PATH, "Plots")
         os.makedirs(output_dir, exist_ok=True)
-        output_path = os.path.join(output_dir, f"{metric_name}_plot.png")
+        output_path = os.path.join(output_dir, f"{metric_name}_over_{constant_metric}_plot.png")
         plt.savefig(output_path)
         print(f"Plot saved to {output_path}")
 
