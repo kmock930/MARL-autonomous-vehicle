@@ -8,9 +8,24 @@ from simple_grid import SimpleGridEnv
 from marl_3 import train_MAPPO, encoder, decoder, leader_policy, follower_policy
 import time
 import tensorflow as tf
+import psutil
 
 # Hyperparemeter Tuning
 import random
+
+# Incrase the memory buffer for profiling GPU usage
+options = tf.profiler.experimental.ProfilerOptions(
+    host_tracer_level=2, # more detailed traces
+    python_tracer_level=1,
+    device_tracer_level=1
+)
+
+# Check CPU Memory Usage (Referenced from: ChatGPT)
+def log_memory_usage():
+    process = psutil.Process()  # current process
+    # RSS is the "Resident Set Size," the non-swapped physical memory used
+    mem_info = process.memory_info().rss / (1024 * 1024)  # convert to MB
+    print(f"Current process memory usage: {mem_info:.2f} MB")
 
 def main(): # main pipeline goes here
     # Remove the evaluation CSV if it exists
@@ -21,7 +36,6 @@ def main(): # main pipeline goes here
     # Tracking GPU
     tf.debugging.set_log_device_placement(True)
 
-    tf.profiler.experimental.start('logs') # start GPU memory count
     startTime = time.time()
 
     # Initialize the Environment
@@ -86,6 +100,7 @@ def main(): # main pipeline goes here
                             }
                             print(f"Training with parameters: {params}")
 
+                            tf.profiler.experimental.start('logs') # start GPU memory count
                             # Train the models
                             train_MAPPO(
                                 episodes=episodes,
@@ -96,6 +111,8 @@ def main(): # main pipeline goes here
                                 env=env,
                                 hyperparams=params
                             )
+                            log_memory_usage(); # log CPU RAM usage
+                            tf.profiler.experimental.stop() # end GPU memory count
 
                             # Evaluate the models (e.g., based on cumulative reward or success rate)
                             # Retrieve cumulative reward from the environment's info
@@ -121,8 +138,6 @@ def main(): # main pipeline goes here
     endTime = time.time()
     print(f"Time taken for hyperparameter tuning and training with the best ones: {endTime - algoStartTime} seconds")
     print(f"Time taken for the entire pipeline process is: {endTime - startTime} seconds")
-
-    tf.profiler.experimental.stop() # end GPU memory count
 
     # Print Best Hyperparameters
     print(f"Best Hyperparameters: {best_params}") # dict: best learning rate + episode

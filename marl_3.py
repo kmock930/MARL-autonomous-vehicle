@@ -127,7 +127,6 @@ def new_pos(agent_position: tuple[int, int], action: ACTION_SPACE, agents: list)
 # - Suggested movement: e.g., (0,0) if leader suggests follower to stay or (0,-1) if suggested going left. Not the coordinates here!
 # - Urgency level: int ranging between 1-5, the lower the more urgent.
 
-from ast import IsNot
 #window: 3X3
 def get_leader_message(pos: tuple[int, int], env: SimpleGridEnv):
     """
