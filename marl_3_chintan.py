@@ -35,7 +35,7 @@ Original file is located at
 
 import tensorflow as tf
 import numpy as np
-from constants import ACTION_SPACE, REWARDS
+from constants import ACTION_SPACE, REWARDS, LEADER_MESSAGE_SIZE
 # Import the Env
 import sys
 import os
@@ -178,14 +178,14 @@ def get_agent_observation(pos: tuple[int, int], env: SimpleGridEnv):
                         action_dx, action_dy = dx, dy
 
                 # Agents can see each other
-                if any(agent['position'] == (nx, ny) for agent in env.agents):
+                if any(agent['position'] == (nx, ny) and agent.get('role') == 'follower' for agent in env.agents):
                     agent_visibility = 1
-                    agent_dist = np.sqrt((x - nx) ** 2 + (y - ny) ** 2)
+                    agent_dist = np.floor(np.sqrt((x - nx) ** 2 + (y - ny) ** 2)) # Round down for diagonal distances
 
                 # Nearest obstacle
                 if env.obstacles[nx, ny] in [env.OBSTACLE_SOFT, env.OBSTACLE_HARD]:
                     obstacles_pos.append((nx, ny))
-                    dist = np.sqrt((x - nx) ** 2 + (y - ny) ** 2)
+                    dist = np.floor(np.sqrt((x - nx) ** 2 + (y - ny) ** 2)) # Round down for diagonal distances
                     distances.append(dist)
 
     if len(distances) > 0:
@@ -197,8 +197,8 @@ def get_agent_observation(pos: tuple[int, int], env: SimpleGridEnv):
 
 # LSTM
 def build_encoder():
-    input_layer = tf.keras.layers.Input(shape=(8,))
-    reshaped = tf.keras.layers.Reshape((1, 8))(input_layer)
+    input_layer = tf.keras.layers.Input(shape=(LEADER_MESSAGE_SIZE,))
+    reshaped = tf.keras.layers.Reshape((1, LEADER_MESSAGE_SIZE))(input_layer)
     x = tf.keras.layers.LSTM(64, return_sequences=True)(reshaped)
     latent = tf.keras.layers.LSTM(32)(x)
     return tf.keras.models.Model(input_layer, latent, name="encoder")
@@ -208,7 +208,7 @@ def build_decoder():
     x = tf.keras.layers.RepeatVector(1)(latent_input)
     x = tf.keras.layers.LSTM(64, return_sequences=True)(x)
     x = tf.keras.layers.LSTM(64)(x)
-    output_layer = tf.keras.layers.Dense(8, activation="linear")(x)
+    output_layer = tf.keras.layers.Dense(LEADER_MESSAGE_SIZE, activation="linear")(x)
     return tf.keras.models.Model(latent_input, output_layer, name="decoder")
 
 encoder = build_encoder()
@@ -216,8 +216,8 @@ decoder = build_decoder()
 
 # MLP MAPPO
 def leader_policy_network():
-    input_layer = tf.keras.layers.Input(shape=(8,))
-    reshaped = tf.keras.layers.Reshape((1, 8))(input_layer)
+    input_layer = tf.keras.layers.Input(shape=(LEADER_MESSAGE_SIZE,))
+    reshaped = tf.keras.layers.Reshape((1, LEADER_MESSAGE_SIZE))(input_layer)
     # hidden layers
     x = tf.keras.layers.Dense(64, activation="relu")(reshaped)
     x = tf.keras.layers.Dense(64, activation="relu")(x)
@@ -228,7 +228,7 @@ def leader_policy_network():
 
 def follower_policy_network():
     # New input shape: 2 entities with 8 features each
-    input_layer = tf.keras.layers.Input(shape=(2, 8))
+    input_layer = tf.keras.layers.Input(shape=(2, LEADER_MESSAGE_SIZE))
     # Pooling layer to aggregate the two entities into one representation.
     # GlobalAveragePooling1D computes the average across the 2 time steps (entities).
     pooled = tf.keras.layers.GlobalAveragePooling1D()(input_layer)
@@ -251,7 +251,7 @@ class MAPPO:
         self.decoder = decoder
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
 
-    def compute_loss(self, state_leader, decoded_msg, action_leader, action_follower, reward, leader_env_obs, encoded_message, decoded_message, hyperparams: dict = None):
+    def compute_loss(self, state_leader, decoded_msg, action_leader, action_follower, reward, leader_message, encoded_message, decoded_message, hyperparams: dict = None):
         # Hyperparameters
         contrastive_weight = 0.5  # Default value
         reconstruction_loss_weight = 0.2  # Default value
@@ -260,8 +260,8 @@ class MAPPO:
             contrastive_weight = hyperparams.get('contrastive_weight', contrastive_weight)
             reconstruction_loss_weight = hyperparams.get('reconstruction_loss_weight', reconstruction_loss_weight)
             entropy_bonus_weight = hyperparams.get('entropy_bonus_weight', entropy_bonus_weight)
-        # Convert leader_env_obs and decoded_message to NumPy arrays
-        leader_env_obs = np.array(leader_env_obs)
+        # Convert leader_message and decoded_message to NumPy arrays
+        leader_message = np.array(leader_message)
         decoded_message = np.array(decoded_message)
 
         # Compute Advantage (A = R + γV(s') - V(s))
@@ -271,8 +271,9 @@ class MAPPO:
 
         # Policy Gradient Loss (A2C)
         action_prob_leader = self.leader_model(state_leader.reshape(1, -1))
-        # Combine decoded_msg with follower_env_obs to match the expected input shape
-        follower_input = np.stack([decoded_msg, decoded_msg], axis=1)  # Replace the second decoded_msg with follower_env_obs if available
+        # Combine decoded_msg with leader_message to match the expected input shape
+        follower_input = np.stack([decoded_msg, decoded_msg], axis=1)  # Replace the second decoded_msg with follower_leader_message if available
+        follower_input = np.reshape(follower_input, (-1, 2, 8))  # Matches the expected input shape
         action_prob_follower = self.follower_model(follower_input)
         policy_loss = -tf.reduce_mean(advantage * tf.math.log(action_prob_leader + 1e-8))
         print('Policy Gradient Loss', policy_loss)
@@ -282,15 +283,15 @@ class MAPPO:
         print('Contrastive Loss', contrastive_loss_value)
 
         # Message Reconstruction Loss (L_recon)
-        print(f'leader_env_obs={leader_env_obs}')
+        print(f'leader_message={leader_message}')
         print(f'decoded_message= {decoded_message}')
 
-        # Align shapes of leader_env_obs and decoded_message
-        min_dim = min(leader_env_obs.shape[-1], decoded_message.shape[-1])
-        leader_env_obs_aligned = leader_env_obs[..., :min_dim]
+        # Align shapes of leader_message and decoded_message
+        min_dim = min(leader_message.shape[-1], decoded_message.shape[-1])
+        leader_message_aligned = leader_message[..., :min_dim]
         decoded_message_aligned = decoded_message[..., :min_dim]
 
-        reconstruction_loss = tf.reduce_mean(tf.keras.losses.MSE(leader_env_obs_aligned, decoded_message_aligned))
+        reconstruction_loss = tf.reduce_mean(tf.keras.losses.MSE(leader_message_aligned, decoded_message_aligned))
         print('Reconstruction Loss', reconstruction_loss)
 
         # Entropy Bonus for Exploration
@@ -304,7 +305,7 @@ class MAPPO:
         return total_loss
 
 
-    def apply_gradients(self, state_leader, decoded_msg, action_leader, action_follower, reward, leader_env_obs, encoded_message, decoded_message):
+    def apply_gradients(self, state_leader, decoded_msg, action_leader, action_follower, reward, leader_message, encoded_message, decoded_message):
         with tf.GradientTape() as tape:
             loss = self.compute_loss(
                 state_leader=state_leader,
@@ -312,7 +313,7 @@ class MAPPO:
                 action_leader=action_leader,
                 action_follower=action_follower,
                 reward=reward,
-                leader_env_obs=leader_env_obs,
+                leader_message=leader_message,
                 encoded_message=encoded_message,
                 decoded_message=decoded_message
             )
@@ -349,7 +350,7 @@ def contrastive_loss(messages, positive_pairs, temperature=0.1):
     loss = tf.keras.losses.binary_crossentropy(y_true=labels, y_pred=sim_matrix, from_logits=True)
     return tf.reduce_mean(loss)
 
-def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, hyperparams: dict = None):
+def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, hyperparams: dict = None, algorithm="MAPPO"):
     print("Starting training...")
     # Logging
     episode_rewards = []
@@ -400,40 +401,50 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, h
         for step in range(max_step_per_episode):  # Limit the number of steps per episode
             print(f"Step {step + 1}/{max_step_per_episode}")
             # Leader generates a message and takes an action
-            leader_env_obs = get_agent_observation(leader_pos, env)
-            leader_env_obs.append(-1)  # Placeholder for additional data if needed
-            leader_env_obs.append(-1)  # Placeholder for additional data if needed
-            leader_action_probs = leader_model.predict(np.array(leader_env_obs[:8]).reshape(1, -1))
+            print("leader")
+            leader_message = get_agent_observation(leader_pos, env)
+            leader_message.append(-1)  # Placeholder for additional data if needed
+            leader_message.append(-1)  # Placeholder for additional data if needed
+            leader_action_probs = leader_model.predict(np.array(leader_message[:LEADER_MESSAGE_SIZE]).reshape(1, -1))
             leader_action = list(ACTION_SPACE)[np.argmax(leader_action_probs)]
-            leader_env_obs[4], leader_env_obs[5] = leader_action.value
+            leader_message[4], leader_message[5] = leader_action.value # action_dx, action_dy
 
             # Update leader position using the step method
-            _, _, _, _, info = env.step({0: leader_action.value})
+            _, _, _, _, info = env.step(
+                actions={0: leader_action.value},
+                isTraining=True
+            )
             new_leader_pos = info['agent_positions'][0]
 
             # Encode and decode the leader's message
-            encoded_msg = encoder.predict(np.array(leader_env_obs[:8]).reshape(1, -1))
+            encoded_msg = encoder.predict(np.array(leader_message[:LEADER_MESSAGE_SIZE]).reshape(1, -1))
             decoded_msg = decoder.predict(encoded_msg)
             decoded_msg = decoded_msg.reshape(1, -1)
             
 
             # Follower takes an action based on the decoded message
+            print("follower")
             follower_env_obs = get_agent_observation(follower_pos, env)
             follower_env_obs.append(-1)  # Placeholder for additional data if needed
             follower_env_obs.append(-1)  # Placeholder for additional data if needed
             
-            follower_env_obs = np.array(follower_env_obs[:8]).reshape(1, -1)
+            follower_env_obs = np.array(follower_env_obs[:LEADER_MESSAGE_SIZE]).reshape(1, -1)
             
             # Stack them along a new axis to form an array of shape (1, 2, 8)
             combined_input = np.stack([follower_env_obs, decoded_msg], axis=1)
+            print(f"Combined Input Shape: {combined_input.shape}")
 
             follower_action_probs = follower_model.predict(combined_input)
             follower_action = list(ACTION_SPACE)[np.argmax(follower_action_probs)]
+            # Update follower position using the step method
+            _, _, _, _, info = env.step(
+                actions={1: follower_action.value},
+                isTraining=True
+            )
             new_follower_pos = new_pos(follower_pos, follower_action, env.agents)  # Pass the agents list
-            print("follower")
 
             # Compute distance
-            distance = np.sqrt((new_leader_pos[0] - new_follower_pos[0])**2 + (new_leader_pos[1] - new_follower_pos[1])**2)
+            distance = np.floor(np.sqrt((new_leader_pos[0] - new_follower_pos[0])**2 + (new_leader_pos[1] - new_follower_pos[1])**2)) # Round down for diagonal distances
             distances.append(distance)
 
             x_l, y_l = new_leader_pos
@@ -488,22 +499,22 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, h
             # Compute reconstruction loss
             reconstruction_loss = tf.reduce_mean(
                 tf.keras.losses.MSE(
-                    np.array(leader_env_obs[:8]), 
+                    np.array(leader_message[:LEADER_MESSAGE_SIZE]).reshape(1, -1),  
                     decoded_msg
                 )
             )
 
             # Compute entropy bonus
-            action_prob_leader = leader_model.predict(np.array(leader_env_obs[:8]).reshape(1, -1))
+            action_prob_leader = leader_model.predict(np.array(leader_message[:8]).reshape(1, -1))
             entropy_bonus = -tf.reduce_mean(action_prob_leader * tf.math.log(action_prob_leader + 1e-8))
 
             mappo_model = MAPPO(leader_model, follower_model, encoder, decoder, lr)
             print("mappo")
             with tf.GradientTape() as tape:
                 loss = mappo_model.compute_loss(
-                    np.array(leader_env_obs[:8]), decoded_msg,
+                    np.array(leader_message[:8]), decoded_msg,
                     leader_action, follower_action, reward,
-                    leader_env_obs, encoded_msg, decoded_msg
+                    leader_message, encoded_msg, decoded_msg
                 )
 
             # Update Policy
@@ -530,12 +541,12 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, h
             "avg_reward": avg_reward,
             "policy_loss": float(loss),
             "contrastive_loss": float(mappo_model.compute_loss(
-                state_leader=np.array(leader_env_obs[:8]),
+                state_leader=np.array(leader_message[:8]),
                 decoded_msg=decoded_msg,
                 action_leader=leader_action,
                 action_follower=follower_action,
                 reward=reward,
-                leader_env_obs=leader_env_obs,
+                leader_message=leader_message,
                 encoded_message=encoded_msg,
                 decoded_message=decoded_msg
             )),
@@ -563,6 +574,8 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, h
     # Add timestamp and number of episodes to the logs
     logs_df['timestamp'] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     logs_df['num_episodes'] = episodes
+
+    logs_df['algorithm'] = algorithm
 
     # Append to the file if it exists, otherwise create a new one
     file_path = f"logs/{FILENAME}"

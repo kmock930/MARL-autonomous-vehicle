@@ -5,10 +5,11 @@ sys.path.append(ROOT_PATH)
 SIMPLEGRID_PATH = os.path.abspath(os.path.join(ROOT_PATH, 'gym-simplegrid', 'gym_simplegrid', 'envs'))
 sys.path.append(SIMPLEGRID_PATH)
 from simple_grid import SimpleGridEnv
-from marl_3 import train_MAPPO, encoder, decoder, leader_policy, follower_policy
+from marl_3_chintan import train_MAPPO, encoder, decoder, leader_policy, follower_policy
 import time
 import tensorflow as tf
 import psutil
+import shutil
 
 # Hyperparemeter Tuning
 import random
@@ -167,7 +168,7 @@ if __name__ == "__main__":
     # Remove existing GPU logs
     GPU_LOG_PATH = "logs/plugins"
     if os.path.exists(GPU_LOG_PATH):
-        os.remove(GPU_LOG_PATH)
+        shutil.rmtree(GPU_LOG_PATH)  # Remove directory and all its contents
         print(f"Removed existing GPU log directory: {GPU_LOG_PATH}")
     
     # Baseline: train with MAPPO

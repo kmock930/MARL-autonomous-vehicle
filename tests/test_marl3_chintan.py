@@ -8,7 +8,7 @@ sys.path.append(PATH)
 from marl_3_chintan import SimpleGridEnv, ACTION_SPACE, new_pos, get_agent_observation, encoder, decoder, build_encoder, build_decoder, leader_policy_network, follower_policy_network, MAPPO, contrastive_loss, train_MAPPO
 import numpy as np
 import tensorflow as tf
-from constants import ACTION_SPACE
+from constants import ACTION_SPACE, LEADER_MESSAGE_SIZE
 
 class TestMoveAgent(unittest.TestCase):
     def checkPosition(self, coord):
@@ -209,14 +209,14 @@ class TestMoveAgent(unittest.TestCase):
 
     def test_MAPPO_compute_loss(self):
         # Generate dummy data for the test
-        state_leader = np.random.rand(10).astype(np.float32)
-        decoded_msg = np.random.rand(10).astype(np.float32)
+        state_leader = np.random.rand(8).astype(np.float32)
+        decoded_msg = np.random.rand(8).astype(np.float32)
         action_leader = np.random.rand(1, len(ACTION_SPACE)).astype(np.float32)
         action_follower = np.random.rand(1, len(ACTION_SPACE)).astype(np.float32)
         reward = np.random.rand(1).astype(np.float32)
-        leader_message = np.random.rand(10).astype(np.float32)
-        encoded_message = np.random.rand(10).astype(np.float32)
-        decoded_message = np.random.rand(10).astype(np.float32)
+        leader_message = np.random.rand(8).astype(np.float32)
+        encoded_message = np.random.rand(8).astype(np.float32)
+        decoded_message = np.random.rand(8).astype(np.float32)
 
         # Call compute_loss using the MAPPO object from setUp
         loss = self.mappo.compute_loss(
@@ -225,7 +225,7 @@ class TestMoveAgent(unittest.TestCase):
             action_leader=action_leader,
             action_follower=action_follower,
             reward=reward,
-            leader_env_obs=leader_message,
+            leader_message=leader_message,
             encoded_message=encoded_message,
             decoded_message=decoded_message
         )
@@ -252,7 +252,7 @@ class TestMoveAgent(unittest.TestCase):
             action_leader=action_leader,
             action_follower=action_follower,
             reward=reward,
-            leader_env_obs=leader_message,
+            leader_message=leader_message,
             encoded_message=encoded_message,
             decoded_message=decoded_message
         )
@@ -272,7 +272,7 @@ class TestMoveAgent(unittest.TestCase):
         leader_weights_after = self.mappo.leader_model.trainable_variables
         for before, after in zip(leader_weights_before, leader_weights_after):
             self.assertFalse(np.array_equal(before.numpy(), after.numpy()), "Leader model weights did not update.")
-
+            
         # Assert that the follower model weights are updated
         follower_weights_before = [tf.identity(w) for w in self.mappo.follower_model.trainable_variables]
         self.mappo.apply_gradients(
@@ -355,26 +355,37 @@ class TestMoveAgent(unittest.TestCase):
         print(self.mappo.follower_model.summary())
 
         # Convert agent positions to NumPy arrays and pad to match the expected input shape
-        leader_position = np.array(env.agents[0]['position'])
-        leader_position = np.pad(leader_position, (0, 6), mode='constant')  # Pad with zeros to make it (8,)
-        leader_position = np.expand_dims(leader_position, axis=0)  # Add batch dimension to make it (1, 8)
-
-        follower_position = np.array(env.agents[1]['position'])
-        follower_position = np.pad(follower_position, (0, 6), mode='constant')  # Pad with zeros to make it (8,)
-        follower_position = np.expand_dims(follower_position, axis=0)  # Add batch dimension to make it (1, 8)
-        follower_position = np.tile(follower_position, (2, 1))  # Duplicate to create shape (2, 8)
-        follower_position = np.reshape(follower_position, (-1, 2, 8))  # Reshape to (None, 2, 8)
-
-        leaderModel_pred = self.mappo.leader_model.predict(leader_position)  # Output: numpy array with probabilities
-        followerModel_pred = self.mappo.follower_model.predict(follower_position)  # Output: numpy array with probabilities
-        self.assertIsInstance(leaderModel_pred, np.ndarray)
-        self.assertIsInstance(followerModel_pred, np.ndarray)
-        self.assertEqual(leaderModel_pred.shape[1], len(ACTION_SPACE))
+        leader_position = np.array(env.agents[0]['position']).reshape(1, -1)
+        leader_position_padded = np.pad(leader_position, ((0, 0), (0, LEADER_MESSAGE_SIZE-2)), mode='constant')  # Pad to shape (1, 8)
+        # leader_position_padded = np.array(leader_position_padded).reshape(1, -1)
+        print(f"Leader Position Shape: {leader_position_padded.shape}")
 
         print("ENCODER SUMMARY:")
         self.mappo.encoder.summary()
         print("DECODER SUMMARY:")
         self.mappo.decoder.summary()
+
+        # Communication: Encoder-Decoder
+        encoded_output = self.mappo.encoder.predict(leader_position_padded)
+        decoded_output = self.mappo.decoder.predict(encoded_output)
+        decoded_output = decoded_output.reshape(1, -1)  # Ensure correct shape (1, 8)
+        self.assertEqual(decoded_output.shape, (1, LEADER_MESSAGE_SIZE))
+
+        # Follower
+        follower_position = np.array(env.agents[1]['position']).reshape(1, -1)
+        follower_position_padded = np.pad(follower_position, ((0, 0), (0, LEADER_MESSAGE_SIZE-2)), mode='constant')  # Pad to shape (1, 8)
+        # Combine the Input: leader's message and follower's own observation
+        combined_follower_input = np.stack([follower_position_padded, decoded_output], axis=1)  # shape (1, 2, 8)
+        print(f"Follower Position Shape: {combined_follower_input.shape}")
+
+        self.assertEqual(combined_follower_input.shape, (1, 2, LEADER_MESSAGE_SIZE))
+
+        # POLICY NETWORK PREDICTION - Actions
+        leaderModel_pred = self.mappo.leader_model.predict(leader_position_padded)  # Output: numpy array with probabilities
+        followerModel_pred = self.mappo.follower_model.predict(combined_follower_input)  # Output: numpy array with probabilities
+        self.assertIsInstance(leaderModel_pred, np.ndarray)
+        self.assertIsInstance(followerModel_pred, np.ndarray)
+        self.assertEqual(leaderModel_pred.shape[1], len(ACTION_SPACE))
 
         # Obtain the action with the highest probability for both leader and follower
         leader_action_index = np.argmax(leaderModel_pred, axis=1)  # Index of the highest probability
@@ -394,25 +405,18 @@ class TestMoveAgent(unittest.TestCase):
         for val in follower_action.value:
             self.assertIsInstance(val, int)
         
-        # POLICY NETWORK PREDICTION
-        # Step 1: Create dummy leader message (simulate message structure)
-        dummy_leader_message = np.random.rand(1, 8).astype(np.float32)
-
-        # Step 2: Pass through encoder-decoder model (communication channel)
-        encoded_output = self.mappo.encoder.predict(dummy_leader_message)
-
-        # Step 3: Decode the message
-        decoded_output = self.mappo.decoder.predict(encoded_output)
-
-        # Step 4: Feed the encoded output to follower's policy network
-        action_probs = self.mappo.follower_model.predict(decoded_output)
-
+        
         # Step 5: Assert that the output is valid and action probabilities sum to ~1
-        self.assertEqual(action_probs.shape, (1, len(ACTION_SPACE)))
-        self.assertAlmostEqual(np.sum(action_probs), 1.0, places=3)
+        # Leader
+        self.assertEqual(leaderModel_pred.shape, (1, len(ACTION_SPACE)))
+        self.assertAlmostEqual(np.sum(leaderModel_pred), 1.0, places=3)
+        # Follower
+        self.assertEqual(followerModel_pred.shape, (1, len(ACTION_SPACE)))
+        self.assertAlmostEqual(np.sum(followerModel_pred), 1.0, places=3)
 
         print("Encoded Msg:", encoded_output)
-        print("Follower Policy Output:", action_probs)
+        print("Decoded Msg:", decoded_output)
+        print("Follower Policy Output:", followerModel_pred)
 
     def test_display_model_summary(self):
         env = SimpleGridEnv(
