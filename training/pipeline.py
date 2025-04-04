@@ -27,11 +27,12 @@ def log_memory_usage():
     mem_info = process.memory_info().rss / (1024 * 1024)  # convert to MB
     print(f"Current process memory usage: {mem_info:.2f} MB")
 
-def main(): # main pipeline goes here
+def main(alg:str = "MAPPO"): # main pipeline goes here
     # Remove the evaluation CSV if it exists
     CSVPATH = 'logs/evaluation.csv'
     if os.path.exists(CSVPATH):
         os.remove(CSVPATH)
+        print(f"Removed existing evaluation CSV file: {CSVPATH}")
     
     # Tracking GPU
     tf.debugging.set_log_device_placement(True)
@@ -80,7 +81,7 @@ def main(): # main pipeline goes here
 
     algoStartTime = time.time()
 
-    training_count = highest_reward_training =1 # count of trainings done
+    training_count = highest_reward_training = 1 # count of trainings done
     # Perform Hyperparameter Tuning with Grid Search
     for lr in learning_rates:
         for episodes in episodes_list:
@@ -103,15 +104,19 @@ def main(): # main pipeline goes here
 
                             tf.profiler.experimental.start('logs') # start GPU memory count
                             # Train the models
-                            train_MAPPO(
-                                episodes=episodes,
-                                leader_model=leader_policy,
-                                follower_model=follower_policy,
-                                encoder=encoder,
-                                decoder=decoder,
-                                env=env,
-                                hyperparams=params
-                            )
+                            match alg:
+                                case "MAPPO":
+                                    train_MAPPO(
+                                        episodes=episodes,
+                                        leader_model=leader_policy,
+                                        follower_model=follower_policy,
+                                        encoder=encoder,
+                                        decoder=decoder,
+                                        env=env,
+                                        hyperparams=params
+                                    )
+                                case _:
+                                    raise ValueError("Algorithm not supported.")
                             log_memory_usage(); # log CPU RAM usage
                             tf.profiler.experimental.stop() # end GPU memory count
 
@@ -131,7 +136,10 @@ def main(): # main pipeline goes here
                                     "contrastive_weight": contrastive_weight,
                                     "reconstruction_weight": reconstruction_weight,
                                     "entropy_weight": entropy_weight,
-                                    "max_steps": max_steps
+                                    "max_steps": max_steps,
+                                    "cumulative_reward": curr_cumulative_reward,
+                                    "training_count": training_count,
+                                    "training_time": time.time() - startTimeInEpisode
                                 }
 
                                 # Save the best models
@@ -153,7 +161,14 @@ def main(): # main pipeline goes here
     print(f"Best Set of Hyperparameters in Training Process {highest_reward_training}: {best_params}") # dict: best learning rate + episode
     print(f"Highest Cumulative Reward in Training Process {highest_reward_training}: {best_score}") # best success rate
 
-    print(f"✅ Completed the training pipeline successfully.")
+    print(f"✅ Completed the training pipeline with {alg} successfully.")
 
 if __name__ == "__main__":
-    main()
+    # Remove existing GPU logs
+    GPU_LOG_PATH = "logs/plugins"
+    if os.path.exists(GPU_LOG_PATH):
+        os.remove(GPU_LOG_PATH)
+        print(f"Removed existing GPU log directory: {GPU_LOG_PATH}")
+    
+    # Baseline: train with MAPPO
+    main(alg="MAPPO")
