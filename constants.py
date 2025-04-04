@@ -19,3 +19,5 @@ class REWARDS(Enum):
     STEP = -1
     CRASH = OUT_OF_TETHER = -50
     STAY = -3
+
+LEADER_MESSAGE_SIZE = 8
