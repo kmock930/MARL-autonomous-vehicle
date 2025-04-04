@@ -2,9 +2,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 TRAINING_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__)))
-from google.protobuf.json_format import MessageToJson
-import datetime
-from tensorflow.python.profiler import profiler_v2
 
 # Load the saved logs
 logs_df = pd.read_csv(os.path.join(TRAINING_PATH, "logs/evaluation_metrics.csv"))
@@ -77,3 +74,12 @@ if __name__ == "__main__":
     # Average Memory Usage
     avg_memory_usage = sum(memory_usages) / len(memory_usages)
     print(f"Average CPU Memory Usage: {avg_memory_usage:.2f} MB")
+    # Peak Memory Usage
+    peak_memory_usage = max(memory_usages)
+    peak_occurrence = memory_usages.index(peak_memory_usage) + 1  # Adding 1 for 1-based index
+    print(f"Peak CPU Memory Usage: {peak_memory_usage:.2f} MB at occurrence {peak_occurrence}")
+
+    # Minimum Memory Usage
+    min_memory_usage = min(memory_usages)
+    min_occurrence = memory_usages.index(min_memory_usage) + 1  # Adding 1 for 1-based index
+    print(f"Minimum CPU Memory Usage: {min_memory_usage:.2f} MB at occurrence {min_occurrence}")
