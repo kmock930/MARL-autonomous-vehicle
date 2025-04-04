@@ -257,7 +257,7 @@ class SimpleGridEnv(Env):
 
         return {'observation': self.get_obs(), 'environment': render, **self.get_info()}
     
-    def step(self, actions: dict[int, tuple[int, int]]):
+    def step(self, actions: dict[int, tuple[int, int]], isTraining: bool = False):
         """
         Take a step in the environment.
 
@@ -283,12 +283,17 @@ class SimpleGridEnv(Env):
 
         total_reward = 0
         reset_required = False
+        invalid_agents = set()
+
+        original_positions = {agent_id: agent['position'] for agent_id, agent in enumerate(self.agents)}
 
         for agent_id, action in actions.items():
             agent = self.agents[agent_id]
 
             # Get the current position of the agent
             row, col = agent['position']
+
+            # Get the delta of the action
             dx, dy = action
 
             # Compute the target position of the agent
@@ -310,39 +315,52 @@ class SimpleGridEnv(Env):
                     else:
                         # Reset the game if the move is out of tethered distance
                         print("Out of tethered distance")
+                        print(f"Agent {agent_id} out of tethered distance")
+                        invalid_agents.add(agent_id)
                         reset_required = True
-                        break
                 else:
                     if (target_row, target_col) in [other_agent['position'] for other_agent in self.agents if other_agent != agent]:
                         # Reset the game if the agent crashes with another agent
-                        print("Crash detected")
+                        print(f"Agent {agent_id} crashed with another agent")
+                        invalid_agents.add(agent_id)
                         reset_required = True
-                        break
                     elif self.obstacles[target_row, target_col] == self.OBSTACLE_HARD:
                         # Reset the game if the agent bumps into a hard obstacle
                         print("Hard obstacle encountered")
+                        print(f"Agent {agent_id} encountered a hard obstacle")
+                        invalid_agents.add(agent_id)
                         reset_required = True
-                        break
             else:
                 # Reset the game if an agent attempts to go out of bound
                 print("Out of bounds")
+                print(f"Agent {agent_id} moved out of bounds")
+                invalid_agents.add(agent_id)
                 reset_required = True
-                break
 
             # Compute the reward
             reward = self.get_reward(target_row, target_col)
             total_reward += reward
 
+            # Reverse invalid moves
+            for agent_id in invalid_agents:
+                self.agents[agent_id]['position'] = original_positions[agent_id]
+
         self.cumulative_reward += total_reward
         self.n_iter += 1
 
+        if self.done:
+            episode_done = True  # goal reached
+        elif reset_required:
+            episode_done = not isTraining  # failure, but only reset in execution mode
+        else:
+            episode_done = False
+
         if reset_required:
-            self.reset()
-            self.render()
-            return self.get_obs(), self.cumulative_reward, True, False, {
-                **self.get_info(),
-                'agent_positions': {agent_id: agent['position'] for agent_id, agent in enumerate(self.agents)}
-            }
+            if isTraining:
+                # we allow it to proceed in training mode
+                pass
+            else: # only resets in execution mode
+                self.reset()
 
         # if self.render_mode == "human":
         self.render()

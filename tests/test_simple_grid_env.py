@@ -2,10 +2,12 @@ import unittest
 import sys
 import os
 import numpy as np
-import matplotlib.pyplot as plt
 SIMPLEGRID_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'gym-simplegrid', 'gym_simplegrid', 'envs'))
 sys.path.append(SIMPLEGRID_PATH)
 from simple_grid import SimpleGridEnv
+ROOT_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "..")
+sys.path.append(ROOT_PATH)
+from constants import ACTION_SPACE
 
 class TestSimpleGridEnv(unittest.TestCase):
     def tearDown(self):
@@ -428,6 +430,42 @@ class TestSimpleGridEnv(unittest.TestCase):
         self.assertEqual(type(ansi_output), str)
         self.assertIn(",", ansi_output)  # Check if the output contains comma-separated values
         print(f"ANSI Output: {ansi_output}")
+
+    def test_training_mode_no_reset(self):
+        # Define a simple map
+        obstacle_map = ["0000", "0101", "0001", "1000"]
+        agent_map = ["0030", "0000", "0000", "0000"]
+        target_map = ["0000", "0000", "0000", "0004"]
+
+        # Initialize the environment
+        self.env = SimpleGridEnv(
+            obstacle_map=obstacle_map, 
+            agent_map=agent_map, 
+            target_map=target_map, 
+            render_mode="human",
+            rowSize=4,
+            colSize=4,
+            num_soft_obstacles=2,
+            num_hard_obstacles=2,
+            num_robots=1,
+            tetherDist=2,
+            num_leaders=1,
+            num_target=1
+        )
+        self.env.reset()
+
+        # Get the initial position of the agent
+        initial_position = self.env.agents[0]['position']
+
+        # Simulate an invalid move (e.g., out of bounds)
+        actions = {0: ACTION_SPACE.UP.value}  # Move up, which is out of bounds
+        obs, reward, done, truncated, info = self.env.step(actions, isTraining=True)
+
+        # Verify that the environment does not reset
+        self.assertEqual(self.env.agents[0]['position'], initial_position)
+        self.assertFalse(done)  # The episode should not end
+        self.assertIn('agent_positions', info)
+        self.assertEqual(info['agent_positions'][0], initial_position)
 
 if __name__ == '__main__':
     unittest.main()
