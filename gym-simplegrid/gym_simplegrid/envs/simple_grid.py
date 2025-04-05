@@ -14,6 +14,7 @@ sys.path.append(ROOT)
 from generate_map import generate_map
 from constants import ACTION_SPACE, REWARDS
 import random
+import numpy as np
 
 class SimpleGridEnv(Env):
     """
@@ -58,6 +59,8 @@ class SimpleGridEnv(Env):
         "num_leaders": 0,
         "num_target": 0
     }
+
+    OUT_OF_TETHER_COUNT = 0
 
     def __init__(
         self, 
@@ -215,6 +218,7 @@ class SimpleGridEnv(Env):
             seed=random.randint(0, 1000) if seed is None else seed
 
         self.cumulative_reward = 0
+        self.OUT_OF_TETHER_COUNT = 0
 
         # Re-generating a new map within an episode
         self.obstacles, self.robots, self.targets = generate_map(
@@ -287,6 +291,7 @@ class SimpleGridEnv(Env):
 
         original_positions = {agent_id: agent['position'] for agent_id, agent in enumerate(self.agents)}
 
+        tether_violation_occurred = False
         for agent_id, action in actions.items():
             agent = self.agents[agent_id]
 
@@ -304,7 +309,7 @@ class SimpleGridEnv(Env):
             if self.is_in_bounds(target_row, target_col):
                 if self.is_free(target_row, target_col):
                     # Check if the move is within the tethered distance
-                    if all(max(abs(target_row - other_agent['position'][0]), abs(target_col - other_agent['position'][1])) <= self.env_configurations["tetherDist"] for other_agent in self.agents):
+                    if all(self.compute_distance((target_row, target_col), other_agent['position']) <= self.env_configurations["tetherDist"] for other_agent in self.agents):
                         agent['position'] = (target_row, target_col)
                         self.done = self.on_goal()
                         if self.done:
@@ -316,6 +321,7 @@ class SimpleGridEnv(Env):
                         # Reset the game if the move is out of tethered distance
                         print("Out of tethered distance")
                         print(f"Agent {agent_id} out of tethered distance")
+                        tether_violation_occurred = True
                         invalid_agents.add(agent_id)
                         reset_required = True
                 else:
@@ -336,24 +342,34 @@ class SimpleGridEnv(Env):
                 print(f"Agent {agent_id} moved out of bounds")
                 invalid_agents.add(agent_id)
                 reset_required = True
+        
+        # Increment tether count BEFORE rewards
+        if tether_violation_occurred:
+            self.OUT_OF_TETHER_COUNT += 1
 
-            # Compute the reward
-            reward = self.get_reward(target_row, target_col)
+        # Calculate Reward
+        total_reward = 0
+        for agent_id, action in actions.items():
+            agent = self.agents[agent_id]
+            row, col = agent['position']
+            dx, dy = action
+            target_row = row + dx
+            target_col = col + dy
+
+            reward = self.get_reward(
+                x=target_row,
+                y=target_col,
+                out_of_tether_count=self.OUT_OF_TETHER_COUNT
+            )
             total_reward += reward
-
-            # Reverse invalid moves
-            for agent_id in invalid_agents:
-                self.agents[agent_id]['position'] = original_positions[agent_id]
-
+        
         self.cumulative_reward += total_reward
-        self.n_iter += 1
 
-        if self.done:
-            episode_done = True  # goal reached
-        elif reset_required:
-            episode_done = not isTraining  # failure, but only reset in execution mode
-        else:
-            episode_done = False
+        # Reverse invalid moves
+        for agent_id in invalid_agents:
+            self.agents[agent_id]['position'] = original_positions[agent_id]
+        
+        self.n_iter += 1
 
         if reset_required:
             if isTraining:
@@ -367,7 +383,8 @@ class SimpleGridEnv(Env):
 
         return self.get_obs(), total_reward, self.done, False, {
             **self.get_info(),
-            'agent_positions': {agent_id: agent['position'] for agent_id, agent in enumerate(self.agents)}
+            'agent_positions': {agent_id: agent['position'] for agent_id, agent in enumerate(self.agents)},
+            'out_of_tether_count': self.OUT_OF_TETHER_COUNT
         }
 
     def parse_obstacle_map(self, obstacle_map) -> np.ndarray:
@@ -568,7 +585,7 @@ class SimpleGridEnv(Env):
         """
         return 0 <= row < self.nrow and 0 <= col < self.ncol
 
-    def get_reward(self, x: int, y: int) -> float:
+    def get_reward(self, x: int, y: int, out_of_tether_count: int = 0) -> float:
         """
         Get the reward of a given cell.
         """
@@ -583,8 +600,8 @@ class SimpleGridEnv(Env):
                 return REWARDS.HARD_OBSTACLE.value
         elif (x, y) == self.goal_xy:
             return REWARDS.TARGET.value
-        elif not all(max(abs(x - other_agent['position'][0]), abs(y - other_agent['position'][1])) <= self.env_configurations["tetherDist"] for other_agent in self.agents):
-            return REWARDS.OUT_OF_TETHER.value
+        elif not all(self.compute_distance((x, y), other_agent['position']) <= self.env_configurations["tetherDist"] for other_agent in self.agents):
+            return REWARDS.OUT_OF_TETHER.value * out_of_tether_count
         else:
             # if stay
             rewards: int = 0
@@ -754,6 +771,25 @@ class SimpleGridEnv(Env):
             except Exception as e:
                 pass
             self.fig = None
+
+    def compute_distance(self, point1: tuple[int, int], point2: tuple[int, int]) -> float:
+        """
+        Compute the Euclidean distance between two points in the grid.
+
+        Parameters
+        ----------
+        point1: tuple[int, int]
+            The first point.
+        point2: tuple[int, int]
+            The second point.
+
+        Returns
+        -------
+        float
+            The distance between the two points.
+        """
+        # Round down for diagonal distances
+        return np.floor(np.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2))
 
 if __name__ == "__main__":
     import time
