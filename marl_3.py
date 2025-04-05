@@ -1,3 +1,6 @@
+# This is the original implementation
+# where the leader message size = 10 
+
 # -*- coding: utf-8 -*-
 """MARL_2.ipynb
 
@@ -130,7 +133,9 @@ def new_pos(agent_position: tuple[int, int], action: ACTION_SPACE, agents: list)
 #window: 3X3
 def get_leader_message(pos: tuple[int, int], env: SimpleGridEnv):
     """
-    Generate a message from the leader agent based on its position and the environment.
+    Generate an observation for the agents based on its position and the environment.
+    leader and follower will use this to get their action space. Follower will have 
+    additional information about the leader through leader's. 
 
     Args:
         pos (tuple[int, int]): The position of the leader agent.
@@ -382,6 +387,7 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, h
         for step in range(max_step_per_episode):  # Limit the number of steps per episode
             print(f"Step {step + 1}/{max_step_per_episode}")
             # Leader generates a message and takes an action
+            print("leader")
             leader_message = get_leader_message(leader_pos, env)
             leader_message.append(-1)  # Placeholder for additional data if needed
             leader_message.append(-1)  # Placeholder for additional data if needed
@@ -390,7 +396,10 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, h
             leader_message[6], leader_message[7] = leader_action.value
 
             # Update leader position using the step method
-            _, _, _, _, info = env.step({0: leader_action.value})
+            _, _, _, _, info = env.step(
+                actions={0: leader_action.value},
+                isTraining=True
+            )
             new_leader_pos = info['agent_positions'][0]
 
             # Encode and decode the leader's message
@@ -398,10 +407,16 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, h
             decoded_msg = decoder.predict(encoded_msg)
 
             # Follower takes an action based on the decoded message
+            print("follower")
             follower_action_probs = follower_model.predict(decoded_msg.reshape(1, -1))
             follower_action = list(ACTION_SPACE)[np.argmax(follower_action_probs)]
+            # Update follower position using the step method
+            _, _, _, _, info = env.step(
+                actions={1: follower_action.value},
+                isTraining=True
+            )
             new_follower_pos = new_pos(follower_pos, follower_action, env.agents)  # Pass the agents list
-            print("follower")
+            
 
             # Compute distance
             distance = np.sqrt((new_leader_pos[0] - new_follower_pos[0])**2 + (new_leader_pos[1] - new_follower_pos[1])**2)

@@ -51,8 +51,9 @@ Example:
 
 ### Visual Representation for debugging
 ![Visual Representation](<env_human_render.png>)
-View more states in a simulated game in this directory: `Simulations/`.
-You might need to run the script `runtime-environment.py` to see how a game runs.
+
+View more states in a simulated game in this directory: [`Simulations/`](./Simulations/).
+You might need to run the script [`runtime-environment.py](./runtime-environment.py) to see how a game runs.
 
 ### Algorithms
 #### Leader's Message
@@ -67,19 +68,19 @@ You might need to run the script `runtime-environment.py` to see how a game runs
 - Leader's suggested action in y direction (action_dy): int
 - Leader's current x position (x): int
 - Leader's current y position (y): int
-- Sample: [-1, -1, -1, 1, np.float64(1.4142135623730951), 0, 0, 0, 9, 9]
+- Sample: [-1, 1, 1.0, 0, 0, 0, 2, 2]
 
 #### Encoder Model - for the Leader agent
 
 | Layer (type)       | Output Shape   | Param #  |
 |---------------------|----------------|----------|
-| input_layer         | (None, 10)    | 0        |
-| reshape             | (None, 1, 10) | 0        |
-| lstm                | (None, 1, 64) | 19,200   |
-| lstm_1              | (None, 32)    | 12,416   |
+| input_layer  (InputLayer)        | (None, 8)    | 0        |
+| reshape (Reshape)            | (None, 1, 8) | 0        |
+| lstm (LSTM)                | (None, 1, 64) | 18,688   |
+| lstm_1 (LSTM)              | (None, 32)    | 12,416   |
 
- * Total params: 31,616 (123.50 KB)
- * Trainable params: 31,616 (123.50 KB)
+ * Total params: 31,104 (121.50 KB)
+ * Trainable params: 31,104 (121.50 KB)
  * Non-trainable params: 0 (0.00 B)
  * Prediction: Outputs an array of 32 values, representing the encoded leader's message communicating to the follower agents.
 
@@ -91,29 +92,45 @@ You might need to run the script `runtime-environment.py` to see how a game runs
 | repeat_vector (RepeatVector)| (None, 1, 32)| 0        |
 | lstm_2 (LSTM)             | (None, 1, 64) | 24,832   |
 | lstm_3 (LSTM)             | (None, 64)    | 33,024   |
-| dense (Dense)             | (None, 10)    | 650      |
+| dense (Dense)             | (None, 8)    | 520      |
  
- * Total params: 58,506 (228.54 KB)
- * Trainable params: 58,506 (228.54 KB)
+ * Total params: 58,376 (228.03 KB)
+ * Trainable params: 58,376 (228.03 KB)
  * Non-trainable params: 0 (0.00 B)
- * Prediction: Outputs an array of 10 values, representing the probabilities of each possible action. 
+ * Prediction: Outputs an array of 8 values, representing the probabilities of each possible action. 
 
- #### Policy Network Model
+ #### Policy Network Models
  * Evaluates the best move for an agent.
 
-| Layer (type)           | Output Shape   | Param #  |
-|-------------------------|----------------|----------|
-| input_layer_27         | (None, 10)     | 0        |
-| reshape_48             | (None, 1, 10)  | 0        |
-| dense_71 (Dense)       | (None, 1, 64)  | 704      |
-| dense_72 (Dense)       | (None, 1, 64)  | 4,160    |
-| dense_73 (Dense)       | (None, 1, 9)   | 585      |
-| reshape_49             | (None, 9)      | 0        |
+ #### Leader's Policy Network
 
- * Total params: 5,449 (21.29 KB)
- * Trainable params: 5,449 (21.29 KB)
- * Non-trainable params: 0 (0.00 B)
- * Input should include the encoded message, which is a compressed version of the leader's message with 10 values in an array. 
+| Layer (type)            | Output Shape   | Param #  |
+|--------------------------|----------------|----------|
+| input_layer_27 (InputLayer)          | (None, 8)      | 0        |
+| reshape_26 (Reshape)              | (None, 1, 8)   | 0        |
+| dense_71 (Dense)                | (None, 1, 64)  | 576      |
+| dense_72 (Dense)                | (None, 1, 64)  | 4,160    |
+| dense_73 (Dense)                | (None, 1, 9)   | 585      |
+| reshape_27 (Reshape)              | (None, 9)      | 0        |
+
+* Total params: 5,321 (20.78 KB)
+* Trainable params: 5,321 (20.78 KB)
+* Non-trainable params: 0 (0.00 B)
+
+#### Follower's Policy Network
+
+| Layer (type)                  | Output Shape   | Param #  |
+|-------------------------------|----------------|----------|
+| input_layer_28 (InputLayer)   | (None, 2, 8)   | 0        |
+| global_average_pooling1d_11   | (None, 8)      | 0        |
+| dense_74 (Dense)              | (None, 64)     | 576      |
+| dense_75 (Dense)              | (None, 64)     | 4,160    |
+| dense_76 (Dense)              | (None, 9)      | 585      |
+
+* Total params: 5,321 (20.78 KB)
+* Trainable params: 5,321 (20.78 KB)
+* Non-trainable params: 0 (0.00 B)
+* Input of the model is a combination of the leader's message and its own observation on the grid. The leader's message is encoded and compressed into 8 values in an array.
 
  ## Evaluations
  * Run the [`evaluation.py`](./training/evaluation.py) script to plot nicely looking graphs based on metrics we recorded during training. 
