@@ -432,16 +432,8 @@ class TestSimpleGridEnv(unittest.TestCase):
         print(f"ANSI Output: {ansi_output}")
 
     def test_training_mode_no_reset(self):
-        # Define a simple map
-        obstacle_map = ["0000", "0101", "0001", "1000"]
-        agent_map = ["0030", "0000", "0000", "0000"]
-        target_map = ["0000", "0000", "0000", "0004"]
-
         # Initialize the environment
         self.env = SimpleGridEnv(
-            obstacle_map=obstacle_map, 
-            agent_map=agent_map, 
-            target_map=target_map, 
             render_mode="human",
             rowSize=4,
             colSize=4,
@@ -454,18 +446,84 @@ class TestSimpleGridEnv(unittest.TestCase):
         )
         self.env.reset()
 
-        # Get the initial position of the agent
+        self.env.agents[0]['position'] = (0, 0)  # force top row position
         initial_position = self.env.agents[0]['position']
-
-        # Simulate an invalid move (e.g., out of bounds)
-        actions = {0: ACTION_SPACE.UP.value}  # Move up, which is out of bounds
+        actions = {0: ACTION_SPACE.UP.value} # obviously invalid!
         obs, reward, done, truncated, info = self.env.step(actions, isTraining=True)
 
-        # Verify that the environment does not reset
         self.assertEqual(self.env.agents[0]['position'], initial_position)
-        self.assertFalse(done)  # The episode should not end
+        self.assertFalse(done)
         self.assertIn('agent_positions', info)
         self.assertEqual(info['agent_positions'][0], initial_position)
+
+    def test_compute_distance(self):
+        self.env = SimpleGridEnv(
+            obstacle_map=None,
+            agent_map=None,
+            target_map=None,
+            render_mode="human",
+            rowSize=4,
+            colSize=4,
+            num_soft_obstacles=0,
+            num_hard_obstacles=0,
+            num_robots=0,
+            tetherDist=2,
+            num_leaders=0,
+            num_target=0
+        )
+        # Same point
+        self.assertEqual(self.env.compute_distance((1, 1), (1, 1)), 0)
+
+        # Horizontal
+        self.assertEqual(self.env.compute_distance((1, 1), (1, 3)), 2)
+
+        # Vertical
+        self.assertEqual(self.env.compute_distance((3, 1), (1, 1)), 2)
+
+        # Diagonal
+        self.assertEqual(self.env.compute_distance((1, 1), (2, 2)), 1)
+
+        # Farther diagonal
+        self.assertEqual(self.env.compute_distance((0, 0), (3, 3)), 4)
+
+    def test_out_of_tether_penalty(self):
+        self.env = SimpleGridEnv(
+            render_mode="human",
+            rowSize=4,
+            colSize=4,
+            num_soft_obstacles=0,
+            num_hard_obstacles=0,
+            num_robots=2,  # critical: need more than 1 agent to check tether
+            tetherDist=1,
+            num_leaders=1,
+            num_target=1
+        )
+        self.env.reset()
+
+        # Force agent positions
+        self.env.agents[0]['position'] = (0, 0)
+        self.env.agents[1]['position'] = (3, 3)  # far away that exceeds tetherDist=1
+
+        initial_positions = {agent_id: agent['position'] for agent_id, agent in enumerate(self.env.agents)}
+
+        # Move agent 0 further away
+        actions = {0: (1, 1), 1: (0, 0)}  # arbitrary move, but will still violate tether
+
+        obs, reward, done, truncated, info = self.env.step(actions, isTraining=True)
+
+        # Ensure agent 0 is reset to its original position (because it violated tether)
+        self.assertEqual(self.env.agents[0]['position'], initial_positions[0])
+        # Ensure agent 1 is reset to its original position
+        self.assertEqual(self.env.agents[1]['position'], initial_positions[1])
+        # Confirm training mode does not trigger done
+        self.assertFalse(done)
+        # Confirm that agent positions are reported in info
+        self.assertIn('agent_positions', info)
+        self.assertEqual(info['agent_positions'], initial_positions)
+        # Check the out of tether count in log
+        self.assertIn('out_of_tether_count', info)
+        print(f"Out of tether count: {info['out_of_tether_count']}")
+
 
 if __name__ == '__main__':
     unittest.main()
