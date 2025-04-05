@@ -146,8 +146,6 @@ def get_agent_observation(pos: tuple[int, int], env: SimpleGridEnv):
         
         # Message structure:
 
-        # - Relative position of the goal (xg): int, -1 if goal is not in partial observability.
-        # - Relative position of the goal (yg): int, -1 if goal is not in partial observability.
         # - Distance to the nearest obstacle (obs_dist): int or float
         # - Whether the path is clear or blocked (path_blocked): 0/1 int
         # - Leader can observe the follower or not (follower_visibility): 0/1 int
@@ -402,10 +400,14 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, h
         entropy_bonus = 0  # Initialize entropy_bonus to avoid UnboundLocalError
         loss = 0  # Initialize loss to avoid UnboundLocalError
         for step in range(max_step_per_episode):  # Limit the number of steps per episode
+            # Initialize counters
+            steps_taken = 0
+            communication_count = 0
             print(f"Step {step + 1}/{max_step_per_episode}")
             # Leader generates a message and takes an action
             print("leader")
             leader_message = get_agent_observation(leader_pos, env)
+            communication_count += 1
             leader_message.append(-1)  # Placeholder for additional data if needed
             leader_message.append(-1)  # Placeholder for additional data if needed
             leader_action_probs = leader_model.predict(np.array(leader_message[:LEADER_MESSAGE_SIZE]).reshape(1, -1))
@@ -524,6 +526,7 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, h
             print("Update Policy")
             grads = tape.gradient(loss, leader_model.trainable_variables + follower_model.trainable_variables)
             optimizer.apply_gradients(zip(grads, leader_model.trainable_variables + follower_model.trainable_variables))
+            steps_taken += 1
 
         avg_reward = total_reward / max_step_per_episode  # Calculate average reward
         print(f"Episode {episode + 1}: Average Reward: {avg_reward:.2f}")  # Log average reward
@@ -562,6 +565,8 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, h
             "hyperparams": hyperparams,
             "cumulative_reward": cumulative_reward,
             "out_of_tether_count": info['out_of_tether_count'],
+            "steps_taken": steps_taken,
+            "communication_count": communication_count,
         })
 
         if not episode_reset:
