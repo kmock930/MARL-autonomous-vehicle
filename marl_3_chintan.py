@@ -314,7 +314,7 @@ class MAPPO:
                 action_leader=action_leader,
                 action_follower=action_follower,
                 reward=reward,
-                leader_message=leader_message,
+                leader_message=leader_message[:8],
                 encoded_message=encoded_message,
                 decoded_message=decoded_message
             )
@@ -518,7 +518,7 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, h
                 loss = mappo_model.compute_loss(
                     np.array(leader_message[:8]), decoded_msg,
                     leader_action, follower_action, reward,
-                    leader_message, encoded_msg, decoded_msg
+                    leader_message[:8], encoded_msg, decoded_msg
                 )
 
             # Update Policy
@@ -551,7 +551,7 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, h
                 action_leader=leader_action,
                 action_follower=follower_action,
                 reward=reward,
-                leader_message=leader_message,
+                leader_message=leader_message[:8],
                 encoded_message=encoded_msg,
                 decoded_message=decoded_msg
             )),
