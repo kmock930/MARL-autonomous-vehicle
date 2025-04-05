@@ -399,6 +399,7 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, h
         reconstruction_loss = 0  # Initialize reconstruction_loss to avoid UnboundLocalError
         entropy_bonus = 0  # Initialize entropy_bonus to avoid UnboundLocalError
         loss = 0  # Initialize loss to avoid UnboundLocalError
+        tether_violation_count = 0
         for step in range(max_step_per_episode):  # Limit the number of steps per episode
             # Initialize counters
             steps_taken = 0
@@ -459,9 +460,8 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, h
             tether_limit = env.env_configurations["tetherDist"]
             if distance > tether_limit or distance < 1:
                 tether_violated += 1
-                print(f"Episode {episode+1}: Tether constraint violated (Distance: {distance:.2f}, Tether Limit: {tether_limit}). Resetting...")
-                break
-
+                print(f"Episode {episode+1}: Tether constraint violated (Distance: {distance:.2f}, Tether Limit: {tether_limit}).")
+                tether_violation_count += 1
             elif env.obstacles[x_l, y_l] == OBSTACLE_HARD or env.obstacles[x_f, y_f] == OBSTACLE_HARD:
                 collisions += 1
                 print(f"Episode {episode+1}: Hard obstacle constraint violated. Resetting...")
@@ -499,7 +499,7 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, h
                  any(agent['position'] == new_follower_pos for agent in env.agents if agent['position'] != follower_pos):
                 reward += REWARDS.CRASH.value  # Penalty for crashing onto another agent
             elif distance > env.env_configurations["tetherDist"]:
-                reward += REWARDS.OUT_OF_TETHER.value  # Penalty for being out of tether range
+                reward += REWARDS.OUT_OF_TETHER.value * tether_violation_count  # Penalty for being out of tether range
             total_reward += reward
 
             # Compute reconstruction loss
