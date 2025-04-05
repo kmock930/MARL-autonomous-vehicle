@@ -498,7 +498,8 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, h
             elif any(agent['position'] == new_leader_pos for agent in env.agents if agent['position'] != leader_pos) or \
                  any(agent['position'] == new_follower_pos for agent in env.agents if agent['position'] != follower_pos):
                 reward += REWARDS.CRASH.value  # Penalty for crashing onto another agent
-
+            elif distance > env.env_configurations["tetherDist"]:
+                reward += REWARDS.OUT_OF_TETHER.value  # Penalty for being out of tether range
             total_reward += reward
 
             # Compute reconstruction loss
