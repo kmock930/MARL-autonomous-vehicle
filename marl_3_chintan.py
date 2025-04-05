@@ -1,3 +1,6 @@
+# This is the new implementation
+# where the leader message size = 8
+
 # -*- coding: utf-8 -*-
 """MARL_2.ipynb
 
@@ -432,7 +435,7 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, h
             
             # Stack them along a new axis to form an array of shape (1, 2, 8)
             combined_input = np.stack([follower_env_obs, decoded_msg], axis=1)
-            print(f"Combined Input Shape: {combined_input.shape}")
+            # print(f"Follower's Input Shape: {combined_input.shape}")
 
             follower_action_probs = follower_model.predict(combined_input)
             follower_action = list(ACTION_SPACE)[np.argmax(follower_action_probs)]
@@ -557,7 +560,8 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, h
             "collisions": collisions,
             "avg_distance": avg_distance,
             "hyperparams": hyperparams,
-            "cumulative_reward": cumulative_reward
+            "cumulative_reward": cumulative_reward,
+            "out_of_tether_count": info['out_of_tether_count'],
         })
 
         if not episode_reset:
