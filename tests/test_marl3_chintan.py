@@ -1,3 +1,6 @@
+# This test is in regards with the new implementation of marl_3_chintan.py
+# where the leader message size = 8
+
 import unittest
 
 import sys
