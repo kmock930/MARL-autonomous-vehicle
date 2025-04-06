@@ -6,7 +6,7 @@ TRAINING_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 # Load the saved logs
 logs_df = pd.read_csv(os.path.join(TRAINING_PATH, "logs/evaluation_metrics.csv"))
 
-def plot_metrics(logs_df, metric_name, constant_metric, isSaved=False, isShow=False):
+def plot_metrics(logs_df, metric_name, constant_metric, isSaved=False, isShow=False, output_path_dir=TRAINING_PATH):
     if (metric_name not in logs_df.columns):
         raise ValueError(f"Specific metric '{metric_name}' not found in logs DataFrame.")
     if (metric_name == constant_metric):
@@ -19,7 +19,7 @@ def plot_metrics(logs_df, metric_name, constant_metric, isSaved=False, isShow=Fa
     plt.legend()
     
     if isSaved:
-        output_dir = os.path.join(TRAINING_PATH, "Plots")
+        output_dir = os.path.join(output_path_dir, "Plots")
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, f"{metric_name}_over_{constant_metric}_plot.png")
         plt.savefig(output_path)
