@@ -76,11 +76,11 @@ You might need to run the script [`runtime-environment.py](./runtime-environment
 |---------------------|----------------|----------|
 | input_layer  (InputLayer)        | (None, 8)    | 0        |
 | reshape (Reshape)            | (None, 1, 8) | 0        |
-| lstm (LSTM)                | (None, 1, 64) | 18,688   |
-| lstm_1 (LSTM)              | (None, 32)    | 12,416   |
+| gru (GRU)                | (None, 1, 64) | 14,208   |
+| gru_1 (GRU)              | (None, 32)    | 9,408   |
 
- * Total params: 31,104 (121.50 KB)
- * Trainable params: 31,104 (121.50 KB)
+ * Total params: 23,616 (92.25 KB)
+ * Trainable params: 23,616 (92.25 KB)
  * Non-trainable params: 0 (0.00 B)
  * Prediction: Outputs an array of 32 values, representing the encoded leader's message communicating to the follower agents.
 
@@ -90,12 +90,12 @@ You might need to run the script [`runtime-environment.py](./runtime-environment
 |---------------------------|----------------|----------|
 | input_layer_1 (InputLayer)| (None, 32)     | 0        |
 | repeat_vector (RepeatVector)| (None, 1, 32)| 0        |
-| lstm_2 (LSTM)             | (None, 1, 64) | 24,832   |
-| lstm_3 (LSTM)             | (None, 64)    | 33,024   |
+| gru_2 (GRU)             | (None, 1, 64) | 18,816   |
+| gru_3 (GRU)             | (None, 64)    | 24,960   |
 | dense (Dense)             | (None, 8)    | 520      |
  
- * Total params: 58,376 (228.03 KB)
- * Trainable params: 58,376 (228.03 KB)
+ * Total params: 44,296 (173.03 KB)
+ * Trainable params: 44,296 (173.03 KB)
  * Non-trainable params: 0 (0.00 B)
  * Prediction: Outputs an array of 8 values, representing the probabilities of each possible action. 
 

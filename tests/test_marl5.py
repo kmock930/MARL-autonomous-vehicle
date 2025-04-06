@@ -445,6 +445,8 @@ class TestMoveAgent(unittest.TestCase):
         self.mappo.encoder.summary()
         print("DECODER MODEL SUMMARY:")
         self.mappo.decoder.summary()
+        print("CRITIC MODEL SUMMARY:")
+        self.mappo.critic_model.summary()
 
     def test_build_critic_network(self):
         # Build the critic network model
