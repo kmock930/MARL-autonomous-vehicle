@@ -1,0 +1,2 @@
+episode,reward,avg_distance,policy_loss,contrastive_loss,entropy,tether_violations,collisions,hyperparams,algorithm,timestamp,num_episodes
+1,-100,9.019509074839817,,0.0,0.24411600828170776,100,0,"{'lr': 0.001, 'max_steps': 100, 'max_episodes': 1}",MAPPO,2025-04-05 21:35:32,1
