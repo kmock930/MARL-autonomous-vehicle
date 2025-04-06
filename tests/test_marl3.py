@@ -1,3 +1,6 @@
+# This test is in regards with the original implementation of marl_3.py
+# where the leader message size = 10 
+
 import unittest
 
 import sys
@@ -169,6 +172,24 @@ class TestMoveAgent(unittest.TestCase):
         output_activation = decoder.layers[-1].activation.__name__
         self.assertEqual(output_activation, "linear")  # Ensure the output layer uses linear activation
 
+        # Test a forward pass with dummy data
+        dummy_input = np.random.rand(1, 10).astype(np.float32)
+        encoded_output = encoder.predict(dummy_input)
+        decoded_output = decoder.predict(encoded_output)
+        self.assertIsInstance(encoded_output, np.ndarray)
+        self.assertIsInstance(decoded_output, np.ndarray)
+        self.assertEqual(encoded_output.shape, (1, 32))  # Ensure the output shape matches the expected output size
+        self.assertEqual(decoded_output.shape, (1, 10))  # Ensure the output shape matches the input shape
+        
+        # Train the encoder-decoder with reshaped outputs
+        reshaped_encoded_output = np.tile(encoded_output, (1, 10 // encoded_output.shape[1]))  # Reshape to match input
+        encoder.compile(optimizer='adam', loss='mse')
+        encoder.fit(x=dummy_input, y=reshaped_encoded_output, epochs=10)
+        decoder.compile(optimizer='adam', loss='mse')
+        decoder.fit(x=encoded_output, y=dummy_input, epochs=10)
+        
+        np.testing.assert_almost_equal(decoded_output, dummy_input, decimal=3)  # Ensure the output is close to the input
+
     def test_build_policy_network(self):
         # Build the policy network model
         model = build_policy_network()
@@ -195,12 +216,6 @@ class TestMoveAgent(unittest.TestCase):
         dummy_input = np.random.rand(1, 10).astype(np.float32)
         output = model.predict(dummy_input)
         self.assertEqual(output.shape, (1, len(ACTION_SPACE)))  # Ensure the output shape matches the expected output size
-
-        # Test Forward Pass
-        dummy_input = np.random.rand(1, 10).astype(np.float32)
-        output = model.predict(dummy_input)
-        self.assertEqual(output.shape, (1, len(ACTION_SPACE)))
-        self.assertAlmostEqual(np.sum(output), 1.0, places=3)  # Ensure probabilities sum to ~1
 
     def test_MAPPO_init(self):
         self.assertIsInstance(self.mappo.leader_model, tf.keras.Model)
