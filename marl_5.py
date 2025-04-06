@@ -275,13 +275,18 @@ class MAPPO:
         leader_message = np.array(leader_message)
         decoded_message = np.array(decoded_message)
 
+        # Convert inputs to tensors
+        state_leader = tf.convert_to_tensor(state_leader, dtype=tf.float32)
+        state_leader = tf.reshape(state_leader, (1, -1))
+
         # Compute Advantage (A = R + γV(s') - V(s))
-        value = self.critic_model(state_leader.reshape(1, -1))[0, 0]  # Predicted value
+        # Correctly call the critic model to predict the value
+        value = self.critic_model(state_leader)[0, 0]
         advantage = reward - value  # TD error as Advantage Estimate
         print("loss", advantage)
 
         # Policy Gradient Loss (A2C)
-        action_prob_leader = self.leader_model(state_leader.reshape(1, -1))
+        action_prob_leader = self.leader_model(tf.reshape(state_leader, (1, -1)))
         # Combine decoded_msg with leader_message to match the expected input shape
         follower_input = np.stack([decoded_msg, decoded_msg], axis=1)  # Replace the second decoded_msg with follower_leader_message if available
         follower_input = np.reshape(follower_input, (-1, 2, 8))  # Matches the expected input shape
@@ -416,10 +421,9 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, c
             print(f"Step {step + 1}/{max_step_per_episode}")
             # Leader generates a message and takes an action
             print("leader")
-            leader_message = get_agent_observation(leader_pos, env)
+            leader_message = list(map(lambda x: float(x) if x is not None else 0.0, get_agent_observation(leader_pos, env)))
+            leader_message.extend([-1.0, -1.0]) # Placeholder for additional data if needed
             communication_count += 1
-            leader_message.append(-1)  # Placeholder for additional data if needed
-            leader_message.append(-1)  # Placeholder for additional data if needed
             leader_action_probs = leader_model.predict(np.array(leader_message[:LEADER_MESSAGE_SIZE]).reshape(1, -1))
             leader_action = list(ACTION_SPACE)[np.argmax(leader_action_probs)]
             leader_message[4], leader_message[5] = leader_action.value # action_dx, action_dy
@@ -522,7 +526,7 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, c
             action_prob_leader = leader_model.predict(np.array(leader_message[:8]).reshape(1, -1))
             entropy_bonus = -tf.reduce_mean(action_prob_leader * tf.math.log(action_prob_leader + 1e-8))
 
-            mappo_model = MAPPO(leader_model, follower_model, encoder, decoder, lr)
+            mappo_model = MAPPO(leader_model, follower_model, encoder, decoder, critic_model, lr)
             print("mappo")
             with tf.GradientTape() as tape:
                 loss = mappo_model.compute_loss(
