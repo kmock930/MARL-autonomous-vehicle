@@ -446,6 +446,28 @@ class TestMoveAgent(unittest.TestCase):
         print("DECODER MODEL SUMMARY:")
         self.mappo.decoder.summary()
 
+    def test_build_critic_network(self):
+        # Build the critic network model
+        critic_model = build_critic_network()
+
+        # Check if the model is an instance of tf.keras.Model
+        self.assertIsInstance(critic_model, tf.keras.Model)
+
+        # Check the input and output shapes
+        input_shape = critic_model.input_shape
+        output_shape = critic_model.output_shape
+        self.assertEqual(input_shape, (None, 8))  # Expecting (batch_size, feature_size)
+        self.assertEqual(output_shape, (None, 1))  # Output is scalar value per batch item
+
+        # Test a forward pass with dummy data
+        dummy_input = np.random.rand(1, 8).astype(np.float32)
+        output = critic_model.predict(dummy_input)
+        self.assertEqual(output.shape, (1, 1))  # Output shape is (batch_size, 1)
+
+        # Ensure output is numeric and not NaN
+        self.assertTrue(np.isfinite(output).all(), "Critic output contains NaN or infinite values.")
+
+
     def tearDown(self):
         if hasattr(self, 'env') and self.env is not None:
             self.env.close()
