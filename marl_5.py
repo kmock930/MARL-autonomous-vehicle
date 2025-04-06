@@ -196,19 +196,35 @@ def get_agent_observation(pos: tuple[int, int], env: SimpleGridEnv):
     
     return [obs_dist, agent_visibility, agent_dist, path_blocked, action_dx, action_dy, dx, dy]
 
-# LSTM
+# # LSTM
+# def build_encoder():
+#     input_layer = tf.keras.layers.Input(shape=(LEADER_MESSAGE_SIZE,))
+#     reshaped = tf.keras.layers.Reshape((1, LEADER_MESSAGE_SIZE))(input_layer)
+#     x = tf.keras.layers.LSTM(64, return_sequences=True)(reshaped)
+#     latent = tf.keras.layers.LSTM(32)(x)
+#     return tf.keras.models.Model(input_layer, latent, name="encoder")
+
+# def build_decoder():
+#     latent_input = tf.keras.layers.Input(shape=(32,))
+#     x = tf.keras.layers.RepeatVector(1)(latent_input)
+#     x = tf.keras.layers.LSTM(64, return_sequences=True)(x)
+#     x = tf.keras.layers.LSTM(64)(x)
+#     output_layer = tf.keras.layers.Dense(LEADER_MESSAGE_SIZE, activation="linear")(x)
+#     return tf.keras.models.Model(latent_input, output_layer, name="decoder")
+
+# GRU
 def build_encoder():
     input_layer = tf.keras.layers.Input(shape=(LEADER_MESSAGE_SIZE,))
     reshaped = tf.keras.layers.Reshape((1, LEADER_MESSAGE_SIZE))(input_layer)
-    x = tf.keras.layers.LSTM(64, return_sequences=True)(reshaped)
-    latent = tf.keras.layers.LSTM(32)(x)
+    x = tf.keras.layers.GRU(64, return_sequences=True)(reshaped)
+    latent = tf.keras.layers.GRU(32)(x)
     return tf.keras.models.Model(input_layer, latent, name="encoder")
 
 def build_decoder():
     latent_input = tf.keras.layers.Input(shape=(32,))
     x = tf.keras.layers.RepeatVector(1)(latent_input)
-    x = tf.keras.layers.LSTM(64, return_sequences=True)(x)
-    x = tf.keras.layers.LSTM(64)(x)
+    x = tf.keras.layers.GRU(64, return_sequences=True)(x)
+    x = tf.keras.layers.GRU(64)(x)
     output_layer = tf.keras.layers.Dense(LEADER_MESSAGE_SIZE, activation="linear")(x)
     return tf.keras.models.Model(latent_input, output_layer, name="decoder")
 
