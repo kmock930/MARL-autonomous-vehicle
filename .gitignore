@@ -9,3 +9,7 @@
 **/proposal doc/*.log
 *Miniconda*
 **/*.coverage
+*.h5
+*.pb
+.log
+logs/evaluation_metrics.csv
