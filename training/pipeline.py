@@ -148,6 +148,7 @@ def main(alg:str = "MAPPO"): # main pipeline goes here
                                 follower_policy.save('models/best_follower_model.h5')
                                 encoder.save('models/best_encoder_model.h5')
                                 decoder.save('models/best_decoder_model.h5')
+                                critic_model.save('models/best_critic_model.h5')
                                 print(f"Best models are saved.")
 
             endTimeInEpisode = time.time()
