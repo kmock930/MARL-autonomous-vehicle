@@ -5,7 +5,7 @@ sys.path.append(ROOT_PATH)
 SIMPLEGRID_PATH = os.path.abspath(os.path.join(ROOT_PATH, 'gym-simplegrid', 'gym_simplegrid', 'envs'))
 sys.path.append(SIMPLEGRID_PATH)
 from simple_grid import SimpleGridEnv
-from marl_3_chintan import train_MAPPO, encoder, decoder, leader_policy, follower_policy
+from marl_5 import train_MAPPO, encoder, decoder, critic_model, leader_policy, follower_policy
 import time
 import tensorflow as tf
 import psutil
@@ -13,6 +13,10 @@ import shutil
 
 # Hyperparemeter Tuning
 import random
+
+# Optimize 
+#policy = tf.keras.mixed_precision.Policy('mixed_float16')
+#tf.keras.mixed_precision.set_global_policy(policy)
 
 # Incrase the memory buffer for profiling GPU usage
 options = tf.profiler.experimental.ProfilerOptions(
@@ -61,12 +65,14 @@ def main(alg:str = "MAPPO"): # main pipeline goes here
     follower_policy.save('models/follower_policy_RAW.h5')
     encoder.save('models/encoder_RAW.h5')
     decoder.save('models/decoder_RAW.h5')
+    critic_model.save('models/critic_model_RAW.h5')
 
     # Compile the models
     leader_policy.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError())
     follower_policy.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError())
     encoder.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError())
     decoder.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError())
+    critic_model.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError())
 
     # Define Hyperparameter Grid
     HYPERPARAMETER_COUNT = 2
@@ -114,6 +120,7 @@ def main(alg:str = "MAPPO"): # main pipeline goes here
                                         encoder=encoder,
                                         decoder=decoder,
                                         env=env,
+                                        critic_model=critic_model,
                                         hyperparams=params
                                     )
                                 case _:
