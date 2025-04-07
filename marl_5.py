@@ -400,7 +400,6 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, c
     optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
     total_rewards = []
     success_rate = 0
-    collision_count = 0
 
     # Initialize MAPPO model
     mappo_model = MAPPO(leader_model, follower_model, encoder, decoder,critic_model, lr)
@@ -492,8 +491,14 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, c
                 print(f"Episode {episode+1}: Tether constraint violated (Distance: {distance:.2f}, Tether Limit: {tether_limit}).")
             elif env.obstacles[x_l, y_l] == OBSTACLE_HARD or env.obstacles[x_f, y_f] == OBSTACLE_HARD:
                 collisions += 1
-                print(f"Episode {episode+1}: Hard obstacle constraint violated. Resetting...")
-                break
+                print(f"Episode {episode+1}: Hard obstacle encountered. Reversing move...")
+                new_leader_pos = leader_pos  # Reverse leader move
+                new_follower_pos = follower_pos  # Reverse follower move
+            elif any(agent['position'] == new_leader_pos for agent in env.agents if agent['position'] != leader_pos) or \
+                 any(agent['position'] == new_follower_pos for agent in env.agents if agent['position'] != follower_pos):
+                print(f"Episode {episode+1}: Agent collision detected. Reversing move...")
+                new_leader_pos = leader_pos  # Reverse leader move
+                new_follower_pos = follower_pos  # Reverse follower move
 
             # Update the path and position
             for agent in env.agents:
@@ -511,7 +516,7 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, c
             leader_path.append(leader_pos)
 
             # Compute reward
-            reward -= 1
+            reward -= REWARDS.STEP.value  # Penalty for each step taken
             if (0 <= x_l < env.targets.shape[0] and 0 <= y_l < env.targets.shape[1] and env.targets[x_l, y_l] == TARGET) or \
                (0 <= x_f < env.targets.shape[0] and 0 <= y_f < env.targets.shape[1] and env.targets[x_f, y_f] == TARGET):
                 reward += REWARDS.TARGET.value
