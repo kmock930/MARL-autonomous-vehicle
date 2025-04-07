@@ -18,13 +18,6 @@ import random
 #policy = tf.keras.mixed_precision.Policy('mixed_float16')
 #tf.keras.mixed_precision.set_global_policy(policy)
 
-# Incrase the memory buffer for profiling GPU usage
-options = tf.profiler.experimental.ProfilerOptions(
-    host_tracer_level=2, # more detailed traces
-    python_tracer_level=1,
-    device_tracer_level=1
-)
-
 # Check CPU Memory Usage (Referenced from: ChatGPT)
 def log_memory_usage():
     process = psutil.Process()  # current process
@@ -119,8 +112,8 @@ def main(alg:str = "MAPPO"): # main pipeline goes here
                                         follower_model=follower_policy,
                                         encoder=encoder,
                                         decoder=decoder,
-                                        env=env,
                                         critic_model=critic_model,
+                                        env=env,
                                         hyperparams=params
                                     )
                                 case _:
