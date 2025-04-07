@@ -520,6 +520,10 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, c
             if (0 <= x_l < env.targets.shape[0] and 0 <= y_l < env.targets.shape[1] and env.targets[x_l, y_l] == TARGET) or \
                (0 <= x_f < env.targets.shape[0] and 0 <= y_f < env.targets.shape[1] and env.targets[x_f, y_f] == TARGET):
                 reward += REWARDS.TARGET.value
+                total_reward += reward  # Ensure the reward is added before exiting
+                print(f"Target reached! Episode ends with reward: {total_reward}")
+                episode_reset = True
+                break
             elif (0 <= x_l < env.obstacles.shape[0] and 0 <= y_l < env.obstacles.shape[1] and env.obstacles[x_l, y_l] == OBSTACLE_SOFT) or \
                  (0 <= x_f < env.obstacles.shape[0] and 0 <= y_f < env.obstacles.shape[1] and env.obstacles[x_f, y_f] == OBSTACLE_SOFT):
                 reward += REWARDS.SOFT_OBSTACLE.value
@@ -562,7 +566,7 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, c
             optimizer.apply_gradients(zip(grads, leader_model.trainable_variables + follower_model.trainable_variables))
             steps_taken += 1
 
-        avg_reward = total_reward / max_step_per_episode  # Calculate average reward
+        avg_reward = total_reward / (step + 1)  # Calculate average reward based on actual steps taken
         print(f"Episode {episode + 1}: Average Reward: {avg_reward:.2f}")  # Log average reward
 
         # Log metrics for the episode
