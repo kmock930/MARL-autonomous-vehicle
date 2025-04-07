@@ -8,12 +8,8 @@
 .vscode/
 **/proposal doc/*.log
 *Miniconda*
-<<<<<<< HEAD
 **/*.coverage
 *.h5
 *.pb
 .log
 logs/evaluation_metrics.csv
-=======
-**/*.coverage
->>>>>>> 834cbb8f9f961c583d698aa3d9889df986463091
