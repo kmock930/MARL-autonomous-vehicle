@@ -345,7 +345,7 @@ class MAPPO:
                 action_leader=action_leader,
                 action_follower=action_follower,
                 reward=reward,
-                leader_message=leader_message[:8],
+                leader_message=leader_message[:LEADER_MESSAGE_SIZE],
                 encoded_message=encoded_message,
                 decoded_message=decoded_message
             )
@@ -548,16 +548,16 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, c
             )
 
             # Compute entropy bonus
-            action_prob_leader = leader_model.predict(np.array(leader_message[:8]).reshape(1, -1))
+            action_prob_leader = leader_model.predict(np.array(leader_message[:LEADER_MESSAGE_SIZE]).reshape(1, -1))
             entropy_bonus = -tf.reduce_mean(action_prob_leader * tf.math.log(action_prob_leader + 1e-8))
 
             mappo_model = MAPPO(leader_model, follower_model, encoder, decoder, critic_model, lr)
             print("mappo")
             with tf.GradientTape() as tape:
                 loss = mappo_model.compute_loss(
-                    np.array(leader_message[:8]), decoded_msg,
+                    np.array(leader_message[:LEADER_MESSAGE_SIZE]), decoded_msg,
                     leader_action, follower_action, reward,
-                    leader_message[:8], encoded_msg, decoded_msg
+                    leader_message[:LEADER_MESSAGE_SIZE], encoded_msg, decoded_msg
                 )
 
             # Update Policy
@@ -585,12 +585,12 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, c
             "avg_reward": avg_reward,
             "policy_loss": float(loss),
             "contrastive_loss": float(mappo_model.compute_loss(
-                state_leader=np.array(leader_message[:8]),
+                state_leader=np.array(leader_message[:LEADER_MESSAGE_SIZE]),
                 decoded_msg=decoded_msg,
                 action_leader=leader_action,
                 action_follower=follower_action,
                 reward=reward,
-                leader_message=leader_message[:8],
+                leader_message=leader_message[:LEADER_MESSAGE_SIZE],
                 encoded_message=encoded_msg,
                 decoded_message=decoded_msg
             )),
