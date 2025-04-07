@@ -135,6 +135,8 @@ You might need to run the script [`runtime-environment.py](./runtime-environment
  ## Evaluations
  * Run the [`evaluation.py`](./training/evaluation.py) script to plot nicely looking graphs based on metrics we recorded during training. 
  * On your terminal, change directory into `training/`, and then run `tensorboard --logdir=logs`. Open `http://localhost:6006/` or the port it opens to in order to view GPU consumption statistics.
+ * Run unit tests: on your terminal, change directory into `tests` with `cd tests`. Then, run this command: `coverage run -m unittest discover`. 
+ * Inspect Unit Tests at [./tests/htmlcov/](./tests/htmlcov/)
 
  ## Execution Guide
 * [**TMUX**](tmux.md) for idling long executions
