@@ -5,7 +5,7 @@ sys.path.append(ROOT_PATH)
 SIMPLEGRID_PATH = os.path.abspath(os.path.join(ROOT_PATH, 'gym-simplegrid', 'gym_simplegrid', 'envs'))
 sys.path.append(SIMPLEGRID_PATH)
 from simple_grid import SimpleGridEnv
-from marl_3_chintan import train_MAPPO, encoder, decoder, leader_policy, follower_policy
+from marl_5 import train_MAPPO, encoder, decoder, critic_model, leader_policy, follower_policy
 import time
 import tensorflow as tf
 import psutil
@@ -14,12 +14,9 @@ import shutil
 # Hyperparemeter Tuning
 import random
 
-# Incrase the memory buffer for profiling GPU usage
-options = tf.profiler.experimental.ProfilerOptions(
-    host_tracer_level=2, # more detailed traces
-    python_tracer_level=1,
-    device_tracer_level=1
-)
+# Optimize 
+#policy = tf.keras.mixed_precision.Policy('mixed_float16')
+#tf.keras.mixed_precision.set_global_policy(policy)
 
 # Check CPU Memory Usage (Referenced from: ChatGPT)
 def log_memory_usage():
@@ -61,12 +58,14 @@ def main(alg:str = "MAPPO"): # main pipeline goes here
     follower_policy.save('models/follower_policy_RAW.h5')
     encoder.save('models/encoder_RAW.h5')
     decoder.save('models/decoder_RAW.h5')
+    critic_model.save('models/critic_model_RAW.h5')
 
     # Compile the models
     leader_policy.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError())
     follower_policy.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError())
     encoder.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError())
     decoder.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError())
+    critic_model.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError())
 
     # Define Hyperparameter Grid
     HYPERPARAMETER_COUNT = 2
@@ -113,6 +112,7 @@ def main(alg:str = "MAPPO"): # main pipeline goes here
                                         follower_model=follower_policy,
                                         encoder=encoder,
                                         decoder=decoder,
+                                        critic_model=critic_model,
                                         env=env,
                                         hyperparams=params
                                     )
@@ -148,6 +148,7 @@ def main(alg:str = "MAPPO"): # main pipeline goes here
                                 follower_policy.save('models/best_follower_model.h5')
                                 encoder.save('models/best_encoder_model.h5')
                                 decoder.save('models/best_decoder_model.h5')
+                                critic_model.save('models/best_critic_model.h5')
                                 print(f"Best models are saved.")
 
             endTimeInEpisode = time.time()
