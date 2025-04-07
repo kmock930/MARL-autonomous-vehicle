@@ -3,7 +3,7 @@ import sys
 import os
 SIMPLEGRID_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), 'gym-simplegrid', 'gym_simplegrid', 'envs'))
 sys.path.append(SIMPLEGRID_PATH)
-from constants import ACTION_SPACE
+from constants import ACTION_SPACE, LEADER_MESSAGE_SIZE
 from simple_grid import SimpleGridEnv
 import tensorflow as tf
 
@@ -59,13 +59,13 @@ class Agent:
         # Flatten the grid observation to a 1D array
         observation = observation.flatten()
 
-        # Ensure the observation has exactly 10 elements
-        if observation.size < 10:
-            # Pad with zeros if the observation has fewer than 10 elements
-            observation = np.pad(observation, (0, 10 - observation.size), mode='constant')
-        elif observation.size > 10:
-            # Truncate if the observation has more than 10 elements
-            observation = observation[:10]
+        # Ensure the observation has exactly 8 elements
+        if observation.size < LEADER_MESSAGE_SIZE:
+            # Pad with zeros if the observation has fewer than 8 elements
+            observation = np.pad(observation, (0, LEADER_MESSAGE_SIZE - observation.size), mode='constant')
+        elif observation.size > LEADER_MESSAGE_SIZE:
+            # Truncate if the observation has more than 8 elements
+            observation = observation[:LEADER_MESSAGE_SIZE]
 
         # Reshape observation to include batch dimension
         observation = observation.reshape(1, -1)
@@ -84,7 +84,7 @@ class Agent:
             # follower decide based on message
             # Ensure combined_input matches the expected input shape of the follower policy
             combined_input = np.concatenate((observation, self.message), axis=1)
-            combined_input = combined_input[:, :10]  # Adjust to match the expected shape
+            combined_input = combined_input[:, :LEADER_MESSAGE_SIZE]  # Adjust to match the expected shape
             predictions = self.follower_policy.predict(combined_input)
         
         # Take action with best probability
@@ -112,7 +112,7 @@ class Agent:
         """
         if (self.role == "leader"):
             # should return encoder's output
-            dummy_input = tf.random.normal((1, 10))
+            dummy_input = tf.random.normal((1, LEADER_MESSAGE_SIZE))
             encoded_message = self.encoder.predict(dummy_input)
             return encoded_message
         else:
