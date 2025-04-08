@@ -38,7 +38,7 @@ Original file is located at
 
 import tensorflow as tf
 import numpy as np
-from constants import ACTION_SPACE, REWARDS, LEADER_MESSAGE_SIZE
+from constants import ACTION_SPACE, REWARDS, LEADER_MESSAGE_SIZE, TETHER_TOLERATE_COUNT
 # Import the Env
 import sys
 import os
@@ -486,11 +486,15 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, c
 
             # Use tetherDist from the environment configuration
             tether_limit = env.env_configurations["tetherDist"]
-            if distance > tether_limit or distance < 1:
+            if distance > tether_limit: # or distance < 1:
                 tether_violated += 1
                 print(f"Episode {episode+1}: Tether constraint violated (Distance: {distance:.2f}, Tether Limit: {tether_limit}).")
-            elif env.obstacles[x_l, y_l] == OBSTACLE_HARD or env.obstacles[x_f, y_f] == OBSTACLE_HARD:
+            elif distance < 1:
                 collisions += 1
+                print(f"Episode {episode+1}: Collision with another agent occurred. Reversing move...")
+                new_leader_pos = leader_pos  # Reverse leader move
+                new_follower_pos = follower_pos  # Reverse follower move
+            elif env.obstacles[x_l, y_l] == OBSTACLE_HARD or env.obstacles[x_f, y_f] == OBSTACLE_HARD:
                 print(f"Episode {episode+1}: Hard obstacle encountered. Reversing move...")
                 new_leader_pos = leader_pos  # Reverse leader move
                 new_follower_pos = follower_pos  # Reverse follower move
@@ -536,9 +540,15 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, c
                  any(agent['position'] == new_follower_pos for agent in env.agents if agent['position'] != follower_pos):
                 reward += REWARDS.CRASH.value  # Penalty for crashing onto another agent
             elif distance > env.env_configurations["tetherDist"]:
-                reward += REWARDS.OUT_OF_TETHER.value * tether_violated  # Penalty for being out of tether range
+                reward += REWARDS.OUT_OF_TETHER.value * tether_violated  # Penalty for being out of tether range)
+            elif (x_l == new_leader_pos[0] and y_l == new_leader_pos[1]) or \
+                 (x_f == new_follower_pos[0] and y_f == new_follower_pos[1]):
+                reward += REWARDS.STAY.value # Penalty for staying in the same position
             total_reward += reward
 
+            if (tether_violated > TETHER_TOLERATE_COUNT):
+                break
+            
             # Compute reconstruction loss
             reconstruction_loss = tf.reduce_mean(
                 tf.keras.losses.MSE(
@@ -592,7 +602,8 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, c
                 reward=reward,
                 leader_message=leader_message[:LEADER_MESSAGE_SIZE],
                 encoded_message=encoded_msg,
-                decoded_message=decoded_msg
+                decoded_message=decoded_msg,
+                hyperparams=hyperparams
             )),
             "reconstruction_loss": float(reconstruction_loss),
             "entropy": float(entropy_bonus),  # Use the initialized or computed entropy_bonus
