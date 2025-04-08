@@ -345,7 +345,7 @@ class MAPPO:
                 action_leader=action_leader,
                 action_follower=action_follower,
                 reward=reward,
-                leader_message=leader_message[:8],
+                leader_message=leader_message[:LEADER_MESSAGE_SIZE],
                 encoded_message=encoded_message,
                 decoded_message=decoded_message
             )
@@ -400,7 +400,6 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, c
     optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
     total_rewards = []
     success_rate = 0
-    collision_count = 0
 
     # Initialize MAPPO model
     mappo_model = MAPPO(leader_model, follower_model, encoder, decoder,critic_model, lr)
@@ -492,8 +491,14 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, c
                 print(f"Episode {episode+1}: Tether constraint violated (Distance: {distance:.2f}, Tether Limit: {tether_limit}).")
             elif env.obstacles[x_l, y_l] == OBSTACLE_HARD or env.obstacles[x_f, y_f] == OBSTACLE_HARD:
                 collisions += 1
-                print(f"Episode {episode+1}: Hard obstacle constraint violated. Resetting...")
-                break
+                print(f"Episode {episode+1}: Hard obstacle encountered. Reversing move...")
+                new_leader_pos = leader_pos  # Reverse leader move
+                new_follower_pos = follower_pos  # Reverse follower move
+            elif any(agent['position'] == new_leader_pos for agent in env.agents if agent['position'] != leader_pos) or \
+                 any(agent['position'] == new_follower_pos for agent in env.agents if agent['position'] != follower_pos):
+                print(f"Episode {episode+1}: Agent collision detected. Reversing move...")
+                new_leader_pos = leader_pos  # Reverse leader move
+                new_follower_pos = follower_pos  # Reverse follower move
 
             # Update the path and position
             for agent in env.agents:
@@ -511,10 +516,14 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, c
             leader_path.append(leader_pos)
 
             # Compute reward
-            reward -= 1
+            reward -= REWARDS.STEP.value  # Penalty for each step taken
             if (0 <= x_l < env.targets.shape[0] and 0 <= y_l < env.targets.shape[1] and env.targets[x_l, y_l] == TARGET) or \
                (0 <= x_f < env.targets.shape[0] and 0 <= y_f < env.targets.shape[1] and env.targets[x_f, y_f] == TARGET):
                 reward += REWARDS.TARGET.value
+                total_reward += reward  # Ensure the reward is added before exiting
+                print(f"Target reached! Episode ends with reward: {total_reward}")
+                episode_reset = True
+                break
             elif (0 <= x_l < env.obstacles.shape[0] and 0 <= y_l < env.obstacles.shape[1] and env.obstacles[x_l, y_l] == OBSTACLE_SOFT) or \
                  (0 <= x_f < env.obstacles.shape[0] and 0 <= y_f < env.obstacles.shape[1] and env.obstacles[x_f, y_f] == OBSTACLE_SOFT):
                 reward += REWARDS.SOFT_OBSTACLE.value
@@ -539,16 +548,16 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, c
             )
 
             # Compute entropy bonus
-            action_prob_leader = leader_model.predict(np.array(leader_message[:8]).reshape(1, -1))
+            action_prob_leader = leader_model.predict(np.array(leader_message[:LEADER_MESSAGE_SIZE]).reshape(1, -1))
             entropy_bonus = -tf.reduce_mean(action_prob_leader * tf.math.log(action_prob_leader + 1e-8))
 
             mappo_model = MAPPO(leader_model, follower_model, encoder, decoder, critic_model, lr)
             print("mappo")
             with tf.GradientTape() as tape:
                 loss = mappo_model.compute_loss(
-                    np.array(leader_message[:8]), decoded_msg,
+                    np.array(leader_message[:LEADER_MESSAGE_SIZE]), decoded_msg,
                     leader_action, follower_action, reward,
-                    leader_message[:8], encoded_msg, decoded_msg
+                    leader_message[:LEADER_MESSAGE_SIZE], encoded_msg, decoded_msg
                 )
 
             # Update Policy
@@ -557,7 +566,7 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, c
             optimizer.apply_gradients(zip(grads, leader_model.trainable_variables + follower_model.trainable_variables))
             steps_taken += 1
 
-        avg_reward = total_reward / max_step_per_episode  # Calculate average reward
+        avg_reward = total_reward / (step + 1)  # Calculate average reward based on actual steps taken
         print(f"Episode {episode + 1}: Average Reward: {avg_reward:.2f}")  # Log average reward
 
         # Log metrics for the episode
@@ -576,12 +585,12 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, c
             "avg_reward": avg_reward,
             "policy_loss": float(loss),
             "contrastive_loss": float(mappo_model.compute_loss(
-                state_leader=np.array(leader_message[:8]),
+                state_leader=np.array(leader_message[:LEADER_MESSAGE_SIZE]),
                 decoded_msg=decoded_msg,
                 action_leader=leader_action,
                 action_follower=follower_action,
                 reward=reward,
-                leader_message=leader_message[:8],
+                leader_message=leader_message[:LEADER_MESSAGE_SIZE],
                 encoded_message=encoded_msg,
                 decoded_message=decoded_msg
             )),

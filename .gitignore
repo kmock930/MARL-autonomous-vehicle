@@ -11,5 +11,5 @@
 **/*.coverage
 *.h5
 *.pb
-.log
+**/*.log
 logs/evaluation_metrics.csv
