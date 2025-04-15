@@ -37,6 +37,8 @@ Original file is located at
 #         return self.output_layer(x)
 
 import tensorflow as tf
+import matplotlib.pyplot as plt
+
 import numpy as np
 from constants import ACTION_SPACE, REWARDS, LEADER_MESSAGE_SIZE, TETHER_TOLERATE_COUNT
 # Import the Env
@@ -211,17 +213,22 @@ def get_agent_observation(pos: tuple[int, int], env: SimpleGridEnv):
 #     x = tf.keras.layers.LSTM(64)(x)
 #     output_layer = tf.keras.layers.Dense(LEADER_MESSAGE_SIZE, activation="linear")(x)
 #     return tf.keras.models.Model(latent_input, output_layer, name="decoder")
+def plot_gradients(grads, label_prefix):
+    grad_norms = [tf.norm(g).numpy() if g is not None else 0 for g in grads]
+    names = [f"{label_prefix}_{i}" for i in range(len(grad_norms))]
+    plt.bar(names, grad_norms, alpha=0.7, label=label_prefix)
+    plt.xticks(rotation=90)
 
 # GRU
 def build_encoder():
     input_layer = tf.keras.layers.Input(shape=(LEADER_MESSAGE_SIZE,))
     reshaped = tf.keras.layers.Reshape((1, LEADER_MESSAGE_SIZE))(input_layer)
     x = tf.keras.layers.GRU(64, return_sequences=True)(reshaped)
-    latent = tf.keras.layers.GRU(32)(x)
+    latent = tf.keras.layers.GRU(LEADER_MESSAGE_SIZE)(x)
     return tf.keras.models.Model(input_layer, latent, name="encoder")
 
 def build_decoder():
-    latent_input = tf.keras.layers.Input(shape=(32,))
+    latent_input = tf.keras.layers.Input(shape=(LEADER_MESSAGE_SIZE,))
     x = tf.keras.layers.RepeatVector(1)(latent_input)
     x = tf.keras.layers.GRU(64, return_sequences=True)(x)
     x = tf.keras.layers.GRU(64)(x)
@@ -316,6 +323,7 @@ class MAPPO:
 
         # Message Reconstruction Loss (L_recon)
         print(f'leader_message={leader_message}')
+        print(f'encoded_message= {encoded_message}')
         print(f'decoded_message= {decoded_message}')
 
         # Align shapes of leader_message and decoded_message
@@ -382,12 +390,14 @@ def contrastive_loss(messages, positive_pairs, temperature=0.1):
     loss = tf.keras.losses.binary_crossentropy(y_true=labels, y_pred=sim_matrix, from_logits=True)
     return tf.reduce_mean(loss)
 
-def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, critic_model,hyperparams: dict = None, algorithm="MAPPO"):
+def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, critic_model,hyperparams: dict = None, algorithm="MAPPO", tether_tolerate_count=TETHER_TOLERATE_COUNT):
     print("Starting training...")
     # Logging
     episode_rewards = []
     episode_losses = []
     episode_logs = []  # To store detailed logs for each episode
+    gradient_changes = []
+    episode_accuracies = []
 
     # Hyperparameters
     lr = 0.001  # Default learning rate
@@ -546,7 +556,7 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, c
                 reward += REWARDS.STAY.value # Penalty for staying in the same position
             total_reward += reward
 
-            if (tether_violated > TETHER_TOLERATE_COUNT):
+            if (tether_violated > tether_tolerate_count):
                 break
             
             # Compute reconstruction loss
@@ -575,6 +585,13 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, c
             grads = tape.gradient(loss, leader_model.trainable_variables + follower_model.trainable_variables)
             optimizer.apply_gradients(zip(grads, leader_model.trainable_variables + follower_model.trainable_variables))
             steps_taken += 1
+            # gradient_norm = tf.linalg.norm(grads[0]).numpy()  
+            # gradient_changes.append(gradient_norm)
+
+            # Calculate accuracy (you can modify this as needed)
+            accuracy = np.mean(np.argmax(leader_action_probs, axis=-1) == np.argmax(follower_action_probs, axis=-1))
+            episode_accuracies.append(accuracy)
+
 
         avg_reward = total_reward / (step + 1)  # Calculate average reward based on actual steps taken
         print(f"Episode {episode + 1}: Average Reward: {avg_reward:.2f}")  # Log average reward
@@ -594,6 +611,7 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, c
             "reward": total_reward,
             "avg_reward": avg_reward,
             "policy_loss": float(loss),
+            "accuracy": accuracy,
             "contrastive_loss": float(mappo_model.compute_loss(
                 state_leader=np.array(leader_message[:LEADER_MESSAGE_SIZE]),
                 decoded_msg=decoded_msg,
@@ -616,13 +634,53 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, c
             "out_of_tether_count": info['out_of_tether_count'],
             "steps_taken": steps_taken,
             "communication_count": communication_count,
+            "gradient_change": np.sqrt(sum([tf.norm(g).numpy()**2 for g in grads if g is not None])) if grads is not None else 0,
+            "episode_accuracies": episode_accuracies,
+            "episode_losses": episode_losses,
         })
 
         if not episode_reset:
             print(f"\nEpisode {episode+1} finished with Reward: {total_reward}")
             print(f"Leader Path: {leader_path}")
             print(f"Follower Path: {follower_path}\n")
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # Plotting the metrics
+    # plt.figure(figsize=(12, 6))
+    # plt.subplot(1, 3, 1)
+    # plt.plot(episode_rewards, label='Reward')
+    # plt.xlabel('Episode')
+    # plt.ylabel('Reward')
+    # plt.title('Reward Over Episodes')
+    # plt.show()
 
+    # plt.subplot(1, 3, 2)
+    # plt.plot(episode_losses, label='Loss')
+    # plt.xlabel('Episode')
+    # plt.ylabel('Loss')
+    # plt.title('Loss Over Episodes')
+    # plt.savefig(os.path.join(os.path.dirname(__file__), 'training', 'Plots', f'Reward_and_Loss_Changes_{timestamp}.png'))
+
+    # plt.subplot(1, 3, 3)
+    # plt.plot(gradient_changes, label='Gradient Change')
+    # plt.xlabel('Episode')
+    # plt.ylabel('Gradient Norm')
+    # plt.title('Gradient Change Over Episodes')
+    
+    # plt.figure(figsize=(12, 6))
+    # plot_gradients(grads[0], "Leader")
+    # plot_gradients(grads[1], "Follower")
+    # plt.title("Gradient Norms for Leader and Follower Models")
+    # plt.xlabel("Trainable Variable Index")
+    # plt.ylabel("Gradient Norm")
+    # plt.legend()
+    # plt.tight_layout()
+    # plt.show()
+
+    # plt.tight_layout()
+    # if not os.path.exists('training/Plots'):
+    #     os.makedirs('training/Plots')
+    # plt.savefig(os.path.join(os.path.dirname(__file__), 'training', 'Plots', f'Gradient_Changes_{timestamp}.png'))
+    
     # Export logs to a CSV file after training
     logs_df = pd.DataFrame(episode_logs)
     if not os.path.exists('logs'):
@@ -630,7 +688,7 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, c
     FILENAME = "evaluation_metrics.csv"
 
     # Add timestamp and number of episodes to the logs
-    logs_df['timestamp'] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    logs_df['timestamp'] = timestamp
     logs_df['num_episodes'] = episodes
 
     logs_df['algorithm'] = algorithm

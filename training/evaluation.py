@@ -59,27 +59,3 @@ if __name__ == "__main__":
                     memory_usage = float(line_content)
                     # Print the memory usage
                     memory_usages.append(memory_usage)
-                    
-    # Plot Memory Usage
-    plt.plot(memory_usages)
-    plt.title("CPU Memory Usage over Training Process")
-    plt.xlabel("Training Process")
-    plt.ylabel("Memory Usage (MB)")
-    plt.legend()
-    output_dir = os.path.join(TRAINING_PATH, "Plots")
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, "Memory_Usage_over_Training_Process.png")
-    plt.savefig(output_path)
-    print(f"CPU Memory Plot has been saved to {output_path}")
-    # Average Memory Usage
-    avg_memory_usage = sum(memory_usages) / len(memory_usages)
-    print(f"Average CPU Memory Usage: {avg_memory_usage:.2f} MB")
-    # Peak Memory Usage
-    peak_memory_usage = max(memory_usages)
-    peak_occurrence = memory_usages.index(peak_memory_usage) + 1  # Adding 1 for 1-based index
-    print(f"Peak CPU Memory Usage: {peak_memory_usage:.2f} MB at occurrence {peak_occurrence}")
-
-    # Minimum Memory Usage
-    min_memory_usage = min(memory_usages)
-    min_occurrence = memory_usages.index(min_memory_usage) + 1  # Adding 1 for 1-based index
-    print(f"Minimum CPU Memory Usage: {min_memory_usage:.2f} MB at occurrence {min_occurrence}")
