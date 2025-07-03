@@ -1,0 +1,2 @@
+[console_scripts]
+marl-train = marl_autonomous_vehicle.training.mappo_trainer:main

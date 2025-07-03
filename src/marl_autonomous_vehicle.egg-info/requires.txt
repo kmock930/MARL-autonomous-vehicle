@@ -1,0 +1,14 @@
+matplotlib>=3.3.0
+numpy>=1.19.0
+
+[dev]
+black>=21.0
+flake8>=3.8
+isort>=5.0
+mypy>=0.800
+pytest-cov>=2.10
+pytest>=6.0
+
+[ml]
+gym>=0.21.0
+tensorflow>=2.8.0
