@@ -16,10 +16,12 @@ class REWARDS(Enum):
     SOFT_OBSTACLE = -10
     HARD_OBSTACLE = -50
     WALL = -47
-    TARGET = 50
+    TARGET = 250
     STEP = -1
     CRASH = OUT_OF_TETHER = -50
     STAY = -3
 
-LEADER_MESSAGE_SIZE = 8
+MESSAGE_SIZE = 1
+AGENT_OBS_SIZE = 6
 TETHER_TOLERATE_COUNT = 5
+LEADER_MESSAGE_SIZE = 6 #Placeholder for Marl_5. TO be removed in final version
