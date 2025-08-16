@@ -1,0 +1,2 @@
+episode,reward,avg_reward,policy_loss,contrastive_loss,reconstruction_loss,entropy,success,tether_violations,collisions,avg_distance,hyperparams,cumulative_reward,out_of_tether_count,steps_taken,communication_count,timestamp,num_episodes,algorithm
+1,-8590050,-85900.5,-5939485.0,-5993471.0,1.5109679698944092,3.312516580478153e-11,False,100,0,7.85,,-7090,7,1,1,2025-04-06 20:07:14,1,MAPPO
