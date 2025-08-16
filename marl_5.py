@@ -196,7 +196,7 @@ def get_agent_observation(pos: tuple[int, int], env: SimpleGridEnv):
     if len(obstacles_pos) == counter:
         path_blocked = 1
     
-    return [obs_dist, agent_visibility, agent_dist, path_blocked, action_dx, action_dy, dx, dy]
+    return [obs_dist, agent_visibility, agent_dist, path_blocked, action_dx, action_dy]
 
 # # LSTM
 # def build_encoder():
@@ -268,7 +268,7 @@ leader_policy = leader_policy_network()
 follower_policy = follower_policy_network()
 
 def build_critic_network():
-    input_layer = tf.keras.Input(shape=(8,))
+    input_layer = tf.keras.Input(shape=(LEADER_MESSAGE_SIZE,))
     x = tf.keras.layers.Dense(64, activation="relu")(input_layer)
     x = tf.keras.layers.Dense(64, activation="relu")(x)
     output_layer = tf.keras.layers.Dense(1)(x)  # Scalar value
@@ -312,7 +312,7 @@ class MAPPO:
         action_prob_leader = self.leader_model(tf.reshape(state_leader, (1, -1)))
         # Combine decoded_msg with leader_message to match the expected input shape
         follower_input = np.stack([decoded_msg, decoded_msg], axis=1)  # Replace the second decoded_msg with follower_leader_message if available
-        follower_input = np.reshape(follower_input, (-1, 2, 8))  # Matches the expected input shape
+        follower_input = np.reshape(follower_input, (-1, 2, LEADER_MESSAGE_SIZE))  # Matches the expected input shape
         action_prob_follower = self.follower_model(follower_input)
         policy_loss = -tf.reduce_mean(advantage * tf.math.log(action_prob_leader + 1e-8))-tf.reduce_mean(advantage * tf.math.log(action_prob_follower + 1e-8))
         print('Policy Gradient Loss', policy_loss)

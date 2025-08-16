@@ -1,36 +1,70 @@
-/home/student/Public/MARL-autonomous-vehicle/training/evaluation.py:68: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
-  plt.legend()
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/tether_violations_over_episode_plot.png
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/hyperparams_over_episode_plot.png
+Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/cumulative_reward_over_episode_plot.png
 Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/entropy_over_episode_plot.png
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/success_over_episode_plot.png
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/algorithm_over_episode_plot.png
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/avg_reward_over_episode_plot.png
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/num_episodes_over_episode_plot.png
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/reward_over_episode_plot.png
+Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/communication_count_over_episode_plot.png
+Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/out_of_tether_count_over_episode_plot.png
+Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/collisions_over_episode_plot.png
+Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/hyperparams_over_episode_plot.png
+Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/gradient_change_over_episode_plot.png
 Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/timestamp_over_episode_plot.png
 Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/avg_distance_over_episode_plot.png
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/reconstruction_loss_over_episode_plot.png
+Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/avg_reward_over_episode_plot.png
+Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/algorithm_over_episode_plot.png
 Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/contrastive_loss_over_episode_plot.png
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/policy_loss_over_episode_plot.png
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/collisions_over_episode_plot.png
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/cumulative_reward_over_episode_plot.png
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/tether_violations_over_reward_plot.png
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/episode_over_reward_plot.png
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/hyperparams_over_reward_plot.png
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/entropy_over_reward_plot.png
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/success_over_reward_plot.png
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/algorithm_over_reward_plot.png
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/avg_reward_over_reward_plot.png
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/num_episodes_over_reward_plot.png
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/timestamp_over_reward_plot.png
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/avg_distance_over_reward_plot.png
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/reconstruction_loss_over_reward_plot.png
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/contrastive_loss_over_reward_plot.png
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/policy_loss_over_reward_plot.png
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/collisions_over_reward_plot.png
-Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/cumulative_reward_over_reward_plot.png
-CPU Memory Plot has been saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/Memory_Usage_over_Training_Process.png
-Average CPU Memory Usage: 4263.14 MB
-Peak CPU Memory Usage: 5953.95 MB at occurrence 16
-Minimum CPU Memory Usage: 1682.21 MB at occurrence 1
+Plot saved to /home/student/Public/MARL-autonomous-vehicle/training/Plots/reward_over_episode_plot.png
+Traceback (most recent call last):
+  File "/home/student/Public/MARL-autonomous-vehicle/training/evaluation.py", line 38, in <module>
+    plot_metrics(
+  File "/home/student/Public/MARL-autonomous-vehicle/training/evaluation.py", line 25, in plot_metrics
+    plt.savefig(output_path)
+  File "/home/student/miniconda3/envs/marl_env/lib/python3.12/site-packages/matplotlib/pyplot.py", line 1243, in savefig
+    res = fig.savefig(*args, **kwargs)  # type: ignore[func-returns-value]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/student/miniconda3/envs/marl_env/lib/python3.12/site-packages/matplotlib/figure.py", line 3490, in savefig
+    self.canvas.print_figure(fname, **kwargs)
+  File "/home/student/miniconda3/envs/marl_env/lib/python3.12/site-packages/matplotlib/backend_bases.py", line 2184, in print_figure
+    result = print_method(
+             ^^^^^^^^^^^^^
+  File "/home/student/miniconda3/envs/marl_env/lib/python3.12/site-packages/matplotlib/backend_bases.py", line 2040, in <lambda>
+    print_method = functools.wraps(meth)(lambda *args, **kwargs: meth(
+                                                                 ^^^^^
+  File "/home/student/miniconda3/envs/marl_env/lib/python3.12/site-packages/matplotlib/backends/backend_agg.py", line 481, in print_png
+    self._print_pil(filename_or_obj, "png", pil_kwargs, metadata)
+  File "/home/student/miniconda3/envs/marl_env/lib/python3.12/site-packages/matplotlib/backends/backend_agg.py", line 429, in _print_pil
+    FigureCanvasAgg.draw(self)
+  File "/home/student/miniconda3/envs/marl_env/lib/python3.12/site-packages/matplotlib/backends/backend_agg.py", line 382, in draw
+    self.figure.draw(self.renderer)
+  File "/home/student/miniconda3/envs/marl_env/lib/python3.12/site-packages/matplotlib/artist.py", line 94, in draw_wrapper
+    result = draw(artist, renderer, *args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/student/miniconda3/envs/marl_env/lib/python3.12/site-packages/matplotlib/artist.py", line 71, in draw_wrapper
+    return draw(artist, renderer)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/student/miniconda3/envs/marl_env/lib/python3.12/site-packages/matplotlib/figure.py", line 3257, in draw
+    mimage._draw_list_compositing_images(
+  File "/home/student/miniconda3/envs/marl_env/lib/python3.12/site-packages/matplotlib/image.py", line 134, in _draw_list_compositing_images
+    a.draw(renderer)
+  File "/home/student/miniconda3/envs/marl_env/lib/python3.12/site-packages/matplotlib/artist.py", line 71, in draw_wrapper
+    return draw(artist, renderer)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/student/miniconda3/envs/marl_env/lib/python3.12/site-packages/matplotlib/axes/_base.py", line 3181, in draw
+    mimage._draw_list_compositing_images(
+  File "/home/student/miniconda3/envs/marl_env/lib/python3.12/site-packages/matplotlib/image.py", line 134, in _draw_list_compositing_images
+    a.draw(renderer)
+  File "/home/student/miniconda3/envs/marl_env/lib/python3.12/site-packages/matplotlib/artist.py", line 71, in draw_wrapper
+    return draw(artist, renderer)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/student/miniconda3/envs/marl_env/lib/python3.12/site-packages/matplotlib/axis.py", line 1419, in draw
+    tick.draw(renderer)
+  File "/home/student/miniconda3/envs/marl_env/lib/python3.12/site-packages/matplotlib/artist.py", line 71, in draw_wrapper
+    return draw(artist, renderer)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/student/miniconda3/envs/marl_env/lib/python3.12/site-packages/matplotlib/axis.py", line 276, in draw
+    artist.draw(renderer)
+  File "/home/student/miniconda3/envs/marl_env/lib/python3.12/site-packages/matplotlib/artist.py", line 71, in draw_wrapper
+    return draw(artist, renderer)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/student/miniconda3/envs/marl_env/lib/python3.12/site-packages/matplotlib/text.py", line 808, in draw
+    textrenderer.draw_text(gc, x, y, clean_line,
+  File "/home/student/miniconda3/envs/marl_env/lib/python3.12/site-packages/matplotlib/backends/backend_agg.py", line 193, in draw_text
+    font.draw_glyphs_to_bitmap(
+RuntimeError: Could not convert glyph to bitmap (raster overflow; error code 0x62)

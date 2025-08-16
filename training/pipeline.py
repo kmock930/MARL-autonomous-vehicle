@@ -74,6 +74,7 @@ def main(alg:str = "MAPPO"): # main pipeline goes here
     contrastive_weights = [round(random.uniform(0.1, 1.0), 2) for _ in range(HYPERPARAMETER_COUNT)]
     reconstruction_weights = [round(random.uniform(0.1, 0.5), 2) for _ in range(HYPERPARAMETER_COUNT)]
     entropy_weights = [round(random.uniform(0.01, 0.1), 3) for _ in range(HYPERPARAMETER_COUNT)]
+    tether_tolerate_count = [round(random.uniform(3, 100//3)) for _ in range(HYPERPARAMETER_COUNT)]
     max_steps_list = [100]
 
     best_score = -float('inf')
@@ -91,65 +92,67 @@ def main(alg:str = "MAPPO"): # main pipeline goes here
                 for reconstruction_weight in reconstruction_weights:
                     for entropy_weight in entropy_weights:
                         for max_steps in max_steps_list:
-                            # Construct the Grid
-                            params = {
-                                "lr": lr, 
-                                "episodes": episodes,
-                                "contrastive_weight": contrastive_weight,
-                                "reconstruction_weight": reconstruction_weight,
-                                "entropy_weight": entropy_weight,
-                                "max_steps": max_steps
-                            }
-                            print(f"Training with parameters: {params}")
-
-                            tf.profiler.experimental.start('logs') # start GPU memory count
-                            # Train the models
-                            match alg:
-                                case "MAPPO":
-                                    train_MAPPO(
-                                        episodes=episodes,
-                                        leader_model=leader_policy,
-                                        follower_model=follower_policy,
-                                        encoder=encoder,
-                                        decoder=decoder,
-                                        critic_model=critic_model,
-                                        env=env,
-                                        hyperparams=params
-                                    )
-                                case _:
-                                    raise ValueError("Algorithm not supported.")
-                            log_memory_usage(); # log CPU RAM usage
-                            tf.profiler.experimental.stop() # end GPU memory count
-
-                            # Evaluate the models (e.g., based on cumulative reward or success rate)
-                            # Retrieve cumulative reward from the environment's info
-                            curr_cumulative_reward = env.get_info().get('cumulative_reward', 0)
-
-                            print(f"Cumulative Reward in training {training_count}: {curr_cumulative_reward}")
-
-                            # Save the best model
-                            if curr_cumulative_reward > best_score:
-                                best_score = curr_cumulative_reward
-                                highest_reward_training = training_count
-                                best_params = {
+                            for tether_tolerate_count in tether_tolerate_count:
+                                # Construct the Grid
+                                params = {
                                     "lr": lr, 
                                     "episodes": episodes,
                                     "contrastive_weight": contrastive_weight,
                                     "reconstruction_weight": reconstruction_weight,
                                     "entropy_weight": entropy_weight,
-                                    "max_steps": max_steps,
-                                    "cumulative_reward": curr_cumulative_reward,
-                                    "training_count": training_count,
-                                    "training_time": time.time() - startTimeInEpisode
+                                    "max_steps": max_steps
                                 }
+                                print(f"Training with parameters: {params}")
 
-                                # Save the best models
-                                leader_policy.save('models/best_leader_model.h5')
-                                follower_policy.save('models/best_follower_model.h5')
-                                encoder.save('models/best_encoder_model.h5')
-                                decoder.save('models/best_decoder_model.h5')
-                                critic_model.save('models/best_critic_model.h5')
-                                print(f"Best models are saved.")
+                                tf.profiler.experimental.start('logs') # start GPU memory count
+                                # Train the models
+                                match alg:
+                                    case "MAPPO":
+                                        train_MAPPO(
+                                            episodes=episodes,
+                                            leader_model=leader_policy,
+                                            follower_model=follower_policy,
+                                            encoder=encoder,
+                                            decoder=decoder,
+                                            critic_model=critic_model,
+                                            env=env,
+                                            hyperparams=params,
+                                            tether_tolerate_count=tether_tolerate_count
+                                        )
+                                    case _:
+                                        raise ValueError("Algorithm not supported.")
+                                log_memory_usage(); # log CPU RAM usage
+                                tf.profiler.experimental.stop() # end GPU memory count
+
+                                # Evaluate the models (e.g., based on cumulative reward or success rate)
+                                # Retrieve cumulative reward from the environment's info
+                                curr_cumulative_reward = env.get_info().get('cumulative_reward', 0)
+
+                                print(f"Cumulative Reward in training {training_count}: {curr_cumulative_reward}")
+
+                                # Save the best model
+                                if curr_cumulative_reward > best_score:
+                                    best_score = curr_cumulative_reward
+                                    highest_reward_training = training_count
+                                    best_params = {
+                                        "lr": lr, 
+                                        "episodes": episodes,
+                                        "contrastive_weight": contrastive_weight,
+                                        "reconstruction_weight": reconstruction_weight,
+                                        "entropy_weight": entropy_weight,
+                                        "max_steps": max_steps,
+                                        "cumulative_reward": curr_cumulative_reward,
+                                        "training_count": training_count,
+                                        "training_time": time.time() - startTimeInEpisode
+                                    }
+
+                                    # Save the best models
+                                    leader_policy.save('models/best_leader_model.h5')
+                                    follower_policy.save('models/best_follower_model.h5')
+                                    encoder.save('models/best_encoder_model.h5')
+                                    decoder.save('models/best_decoder_model.h5')
+                                    critic_model.save('models/best_critic_model.h5')
+                                    print(f"Best models are saved.")
 
             endTimeInEpisode = time.time()
             print(f"Time taken for this episode: {endTimeInEpisode - startTimeInEpisode} seconds")

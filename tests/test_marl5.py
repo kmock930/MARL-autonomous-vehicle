@@ -127,7 +127,7 @@ class TestMoveAgent(unittest.TestCase):
 
         # Check the structure of the message
         self.assertIsInstance(message, list)
-        self.assertEqual(len(message), 8)  # Ensure the message has 8 elements
+        self.assertEqual(len(message), LEADER_MESSAGE_SIZE)  # Ensure the message has 6 elements
         self.assertTrue(all(isinstance(value, (int, float)) for value in message[:5]))  # Check numeric values
         self.assertIn(message[5], [0, 1])  # Ensure path_blocked is 0 or 1
 
@@ -286,7 +286,7 @@ class TestMoveAgent(unittest.TestCase):
 
     def test_contrastive_loss(self):
         # Generate dummy data for the test
-        messages = np.random.rand(5, 8).astype(np.float32)  # 5 messages with 8 dimensions each
+        messages = np.random.rand(5, 6).astype(np.float32)  # 5 messages with 6 dimensions each
         positive_pairs = [0, 1, 2, 3, 4]  # Positive pairs for contrastive loss
         temperature = 0.1  # Temperature parameter for contrastive loss
 

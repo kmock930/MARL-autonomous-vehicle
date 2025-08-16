@@ -61,7 +61,7 @@ class Agent:
 
         # Ensure the observation has exactly 8 elements
         if observation.size < LEADER_MESSAGE_SIZE:
-            # Pad with zeros if the observation has fewer than 8 elements
+            # Pad with zeros if the observation has fewer than 6 elements
             observation = np.pad(observation, (0, LEADER_MESSAGE_SIZE - observation.size), mode='constant')
         elif observation.size > LEADER_MESSAGE_SIZE:
             # Truncate if the observation has more than 8 elements
