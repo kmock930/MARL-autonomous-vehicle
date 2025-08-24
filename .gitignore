@@ -13,3 +13,24 @@
 *.pb
 **/*.log
 logs/evaluation_metrics.csv
+
+# Python package build artifacts
+src/marl_autonomous_vehicle.egg-info/
+build/
+dist/
+*.egg-info/
+
+# Testing artifacts
+.pytest_cache/
+coverage.xml
+htmlcov/
+
+# IDE files
+.idea/
+*.swp
+*.swo
+
+# Virtual environments
+venv/
+env/
+.env
