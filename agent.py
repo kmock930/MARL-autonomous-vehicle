@@ -59,14 +59,6 @@ class Agent:
         # Flatten the grid observation to a 1D array
         observation = observation.flatten()
 
-        # Ensure the observation has exactly 8 elements
-        if observation.size < LEADER_MESSAGE_SIZE:
-            # Pad with zeros if the observation has fewer than 6 elements
-            observation = np.pad(observation, (0, LEADER_MESSAGE_SIZE - observation.size), mode='constant')
-        elif observation.size > LEADER_MESSAGE_SIZE:
-            # Truncate if the observation has more than 8 elements
-            observation = observation[:LEADER_MESSAGE_SIZE]
-
         # Reshape observation to include batch dimension
         observation = observation.reshape(1, -1)
         

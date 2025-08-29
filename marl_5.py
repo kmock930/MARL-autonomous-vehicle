@@ -620,7 +620,7 @@ def train_MAPPO(episodes, leader_model, follower_model, encoder, decoder, env, c
                 reward=reward,
                 leader_message=leader_message[:LEADER_MESSAGE_SIZE],
                 encoded_message=encoded_msg,
-                decoded_message=decoded_msg,
+                decoded_message=decoded_message,
                 hyperparams=hyperparams
             )),
             "reconstruction_loss": float(reconstruction_loss),

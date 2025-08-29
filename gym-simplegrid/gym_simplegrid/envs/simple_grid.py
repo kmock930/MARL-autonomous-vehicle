@@ -15,6 +15,7 @@ from generate_map import generate_map
 from constants import ACTION_SPACE, REWARDS
 import random
 import numpy as np
+from utils import new_pos
 
 class SimpleGridEnv(Env):
     """
@@ -260,7 +261,7 @@ class SimpleGridEnv(Env):
         self.render_initial_frame()
 
         return {'observation': self.get_obs(), 'environment': render, **self.get_info()}
-    
+
     def step(self, actions: dict[int, tuple[int, int]], isTraining: bool = False):
         """
         Take a step in the environment.
@@ -285,70 +286,30 @@ class SimpleGridEnv(Env):
         """
         self.agent_actions = actions
 
-        total_reward = 0
+        step_reward = 0
+        tether_violation_occurred = False
         reset_required = False
         invalid_agents = set()
 
         original_positions = {agent_id: agent['position'] for agent_id, agent in enumerate(self.agents)}
+        print("Original agent positions at start of step:")
+        for agent_id, pos in original_positions.items():
+            print(f"  Agent {agent_id}: Position {pos}")
 
-        tether_violation_occurred = False
         for agent_id, action in actions.items():
             agent = self.agents[agent_id]
 
             # Get the current position of the agent
             row, col = agent['position']
 
-            # Get the delta of the action
-            dx, dy = action
-
-            # Compute the target position of the agent
-            target_row = row + dx
-            target_col = col + dy
-
-            # Check if the move is valid
-            if self.is_in_bounds(target_row, target_col):
-                if self.is_free(target_row, target_col):
-                    # Check if the move is within the tethered distance
-                    if all(self.compute_distance((target_row, target_col), other_agent['position']) <= self.env_configurations["tetherDist"] for other_agent in self.agents):
-                        agent['position'] = (target_row, target_col)
-                        self.done = self.on_goal()
-                        if self.done:
-                            self.cumulative_reward += REWARDS.TARGET.value
-                            print("Target reached")
-                            reset_required = True
-                            break
-                    else:
-                        # Reset the game if the move is out of tethered distance
-                        print("Out of tethered distance")
-                        print(f"Agent {agent_id} out of tethered distance")
-                        tether_violation_occurred = True
-                        invalid_agents.add(agent_id)
-                        reset_required = True
-                else:
-                    if (target_row, target_col) in [other_agent['position'] for other_agent in self.agents if other_agent != agent]:
-                        # Reset the game if the agent crashes with another agent
-                        print(f"Agent {agent_id} crashed with another agent")
-                        invalid_agents.add(agent_id)
-                        reset_required = True
-                    elif self.obstacles[target_row, target_col] == self.OBSTACLE_HARD:
-                        # Reset the game if the agent bumps into a hard obstacle
-                        print("Hard obstacle encountered")
-                        print(f"Agent {agent_id} encountered a hard obstacle")
-                        invalid_agents.add(agent_id)
-                        reset_required = True
-            else:
-                # Reset the game if an agent attempts to go out of bound
-                print("Out of bounds")
-                print(f"Agent {agent_id} moved out of bounds")
-                invalid_agents.add(agent_id)
-                reset_required = True
+            # Calculate the target position based on the action
         
         # Increment tether count BEFORE rewards
         if tether_violation_occurred:
             self.OUT_OF_TETHER_COUNT += 1
 
         # Calculate Reward
-        total_reward = 0
+        step_reward = 0
         for agent_id, action in actions.items():
             agent = self.agents[agent_id]
             row, col = agent['position']
@@ -361,13 +322,14 @@ class SimpleGridEnv(Env):
                 y=target_col,
                 out_of_tether_count=self.OUT_OF_TETHER_COUNT
             )
-            total_reward += reward
+            step_reward += reward
         
-        self.cumulative_reward += total_reward
+        self.cumulative_reward += step_reward
 
         # Reverse invalid moves
         for agent_id in invalid_agents:
             self.agents[agent_id]['position'] = original_positions[agent_id]
+            print(f"Reversing move for agent {agent_id} to {original_positions[agent_id]}")
         
         self.n_iter += 1
 
@@ -381,7 +343,19 @@ class SimpleGridEnv(Env):
         # if self.render_mode == "human":
         self.render()
 
-        return self.get_obs(), total_reward, self.done, False, {
+        print(f"Final Agent Positions: {[agent['position'] for agent in self.agents]}")
+        # Update obstacle map to reflect new agent positions (for occupancy tracking only)
+        for agent_id, agent in enumerate(self.agents):
+            old_pos = original_positions[agent_id]
+            new_pos = agent['position']
+            
+            if old_pos != new_pos:
+                # Agent moved — mark old cell as free
+                self.obstacles[old_pos[0], old_pos[1]] = self.FREE
+            # Always mark new position as occupied
+            self.obstacles[new_pos[0], new_pos[1]] = self.AGENT  # or whatever value you use for agents
+
+        return self.get_obs(), step_reward, self.done, False, {
             **self.get_info(),
             'agent_positions': {agent_id: agent['position'] for agent_id, agent in enumerate(self.agents)},
             'out_of_tether_count': self.OUT_OF_TETHER_COUNT
