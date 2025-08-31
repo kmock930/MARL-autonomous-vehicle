@@ -21,6 +21,14 @@ class REWARDS(Enum):
     CRASH = OUT_OF_TETHER = -50
     STAY = -5
 
+class OBJECT_ENCODING(Enum):
+    OUT_OF_BOUNDS: int = -1
+    FREE: int = 0
+    OBSTACLE_SOFT: int = 1
+    OBSTACLE_HARD: int = 2
+    AGENT: int = 3
+    TARGET: int = 4
+
 MESSAGE_SIZE = 1
 AGENT_OBS_SIZE = 12
 TETHER_TOLERATE_COUNT = 5

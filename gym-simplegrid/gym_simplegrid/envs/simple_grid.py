@@ -12,10 +12,10 @@ import os
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 sys.path.append(ROOT)
 from generate_map import generate_map
-from constants import ACTION_SPACE, REWARDS
+from constants import ACTION_SPACE, REWARDS, OBJECT_ENCODING
 import random
 import numpy as np
-from utils import new_pos
+from utils import is_invalid
 
 class SimpleGridEnv(Env):
     """
@@ -135,7 +135,7 @@ class SimpleGridEnv(Env):
             )
             self.targets = np.zeros((rowSize, colSize), dtype=int)
             for target in self.robots:
-                self.targets[target['position'][0], target['position'][1]] = self.TARGET
+                self.targets[target['position'][0], target['position'][1]] = OBJECT_ENCODING.TARGET
             self.agents = self.robots  # Initialize agents from robots
         else: 
             # Load the map
@@ -144,7 +144,7 @@ class SimpleGridEnv(Env):
             self.targets = self.parse_target_map(target_map)
             self.targets = np.zeros((self.obstacles.shape[0], self.obstacles.shape[1]), dtype=int)
             for target in self.agents:
-                self.targets[target['position'][0], target['position'][1]] = self.TARGET
+                self.targets[target['position'][0], target['position'][1]] = OBJECT_ENCODING.TARGET
             self.targets = np.array(self.targets)  # Ensure targets is a numpy array
             # Ensure agents is a list of dicts if generated, otherwise a numpy array
             if isinstance(self.agents, np.ndarray):
@@ -153,12 +153,12 @@ class SimpleGridEnv(Env):
             self.env_configurations = {
                 "rowSize": self.obstacles.shape[0],
                 "colSize": self.obstacles.shape[1],
-                "num_soft_obstacles": np.sum(self.obstacles == self.OBSTACLE_SOFT),
-                "num_hard_obstacles": np.sum(self.obstacles == self.OBSTACLE_HARD),
+                "num_soft_obstacles": np.sum(self.obstacles == OBJECT_ENCODING.OBSTACLE_SOFT),
+                "num_hard_obstacles": np.sum(self.obstacles == OBJECT_ENCODING.OBSTACLE_HARD),
                 "num_robots": len(self.agents),
                 "tetherDist": tetherDist,
                 "num_leaders": len([agent for agent in self.agents if agent.get('role') == 'leader']),
-                "num_target": np.sum(self.targets == self.TARGET)
+                "num_target": np.sum(self.targets == OBJECT_ENCODING.TARGET)
             }
 
         # Separate agents into leaders and followers
@@ -287,7 +287,6 @@ class SimpleGridEnv(Env):
         self.agent_actions = actions
 
         step_reward = 0
-        tether_violation_occurred = False
         reset_required = False
         invalid_agents = set()
 
@@ -298,39 +297,41 @@ class SimpleGridEnv(Env):
 
         for agent_id, action in actions.items():
             agent = self.agents[agent_id]
-
-            # Get the current position of the agent
-            row, col = agent['position']
-
-            # Calculate the target position based on the action
-        
-        # Increment tether count BEFORE rewards
-        if tether_violation_occurred:
-            self.OUT_OF_TETHER_COUNT += 1
-
-        # Calculate Reward
-        step_reward = 0
-        for agent_id, action in actions.items():
-            agent = self.agents[agent_id]
             row, col = agent['position']
             dx, dy = action
             target_row = row + dx
             target_col = col + dy
+            invalidType: int = is_invalid((target_row, target_col), action, self.agents, self.obstacles)
+            isInvalid: bool = invalidType is not None
+            reward: int = 0 # local reward
 
-            reward = self.get_reward(
-                x=target_row,
-                y=target_col,
-                out_of_tether_count=self.OUT_OF_TETHER_COUNT
-            )
+            if isInvalid:
+                invalid_agents.add(agent_id) # to be reversed
+                # Special Reward Handling before reversing an invalid move
+                match invalidType:
+                    case OBJECT_ENCODING.OUT_OF_BOUNDS:
+                        reward += REWARDS.WALL
+                    case OBJECT_ENCODING.AGENT:
+                        # Only if the new position has another agent (not itself)
+                        if not self.is_free(target_row, target_col, agent_id) \
+                            and self.obstacles[target_row, target_col] == OBJECT_ENCODING.AGENT:
+                            reward += REWARDS.CRASH
+                    case OBJECT_ENCODING.OBSTACLE_HARD:
+                        reward += REWARDS.HARD_OBSTACLE
+            # Valid cases
+            else:
+                # Update Rewards
+                reward += self.get_reward(target_row, target_col, self.OUT_OF_TETHER_COUNT)
+                # Update the Grids only if the move is VALID
+                self.agents[agent_id]['position'] = (target_row, target_col)
+                self.agent_xy = self.agents[agent_id]['position']
+                self.obstacles[target_row, target_col] = OBJECT_ENCODING.AGENT
+                self.obstacles[row, col] = OBJECT_ENCODING.FREE
+
             step_reward += reward
-        
-        self.cumulative_reward += step_reward
 
-        # Reverse invalid moves
-        for agent_id in invalid_agents:
-            self.agents[agent_id]['position'] = original_positions[agent_id]
-            print(f"Reversing move for agent {agent_id} to {original_positions[agent_id]}")
-        
+        self.cumulative_reward += step_reward       
+
         self.n_iter += 1
 
         if reset_required:
@@ -344,16 +345,6 @@ class SimpleGridEnv(Env):
         self.render()
 
         print(f"Final Agent Positions: {[agent['position'] for agent in self.agents]}")
-        # Update obstacle map to reflect new agent positions (for occupancy tracking only)
-        for agent_id, agent in enumerate(self.agents):
-            old_pos = original_positions[agent_id]
-            new_pos = agent['position']
-            
-            if old_pos != new_pos:
-                # Agent moved — mark old cell as free
-                self.obstacles[old_pos[0], old_pos[1]] = self.FREE
-            # Always mark new position as occupied
-            self.obstacles[new_pos[0], new_pos[1]] = self.AGENT  # or whatever value you use for agents
 
         return self.get_obs(), step_reward, self.done, False, {
             **self.get_info(),
@@ -488,7 +479,7 @@ class SimpleGridEnv(Env):
         -------
             tuple: A tuple representing a valid (x, y) position within the grid.
         """
-        free_positions = np.argwhere(self.obstacles == self.FREE)  # Get all free positions
+        free_positions = np.argwhere(self.obstacles == OBJECT_ENCODING.FREE)  # Get all free positions
         if len(free_positions) == 0:
             raise ValueError("No valid free cells available in the grid.")  # Ensure at least one free space exists
 
@@ -500,9 +491,9 @@ class SimpleGridEnv(Env):
         Perform integrity checks to ensure the environment is correctly set up.
         """
         # Check that start and goal positions do not overlap with obstacles
-        assert self.obstacles[self.start_xy] == self.FREE, \
+        assert self.obstacles[self.start_xy] == OBJECT_ENCODING.FREE, \
             f"Start position {self.start_xy} overlaps with an obstacle."
-        assert self.obstacles[self.goal_xy] == self.FREE, \
+        assert self.obstacles[self.goal_xy] == OBJECT_ENCODING.FREE, \
             f"Goal position {self.goal_xy} overlaps with an obstacle."
         
         # Check that start and goal positions are within the grid bounds
@@ -516,9 +507,9 @@ class SimpleGridEnv(Env):
             f"Start position {self.start_xy} overlaps with the goal position {self.goal_xy}."
         
         # check that goals do not overlap with walls
-        assert self.obstacles[self.start_xy] == self.FREE, \
+        assert self.obstacles[self.start_xy] == OBJECT_ENCODING.FREE, \
             f"Start position {self.start_xy} overlaps with a wall."
-        assert self.obstacles[self.goal_xy] == self.FREE, \
+        assert self.obstacles[self.goal_xy] == OBJECT_ENCODING.FREE, \
             f"Goal position {self.goal_xy} overlaps with a wall."
         assert self.is_in_bounds(*self.start_xy), \
             f"Start position {self.start_xy} is out of bounds."
@@ -545,14 +536,16 @@ class SimpleGridEnv(Env):
         self.targets = np.array(self.targets)
         if agent_x >= self.targets.shape[0] or agent_y >= self.targets.shape[1]:
             return False
-        return self.targets[agent_x, agent_y] == self.TARGET
+        return self.targets[agent_x, agent_y] == OBJECT_ENCODING.TARGET
 
-    def is_free(self, row: int, col: int) -> bool:
+    def is_free(self, row: int, col: int, agent_id: int) -> bool:
         """
-        Check if a cell is free.
+        Check if a cell is free, i.e., without obstacles or other agents.
         """
-        return self.obstacles[row, col] == self.FREE
-    
+        noObstacle = self.obstacles[row, col] not in [OBJECT_ENCODING.OBSTACLE_SOFT, OBJECT_ENCODING.OBSTACLE_HARD]
+        noAgent = any(agent['position'] != (row, col) for id, agent in enumerate(self.agents) if id != agent_id)
+        return noObstacle and noAgent
+
     def is_in_bounds(self, row: int, col: int) -> bool:
         """
         Check if a target cell is in the grid bounds.
@@ -568,22 +561,23 @@ class SimpleGridEnv(Env):
         elif not self.is_free(x, y):
             if (x, y) in [agent['position'] for agent in self.agents if agent['position'] != self.agent_xy]:
                 return REWARDS.CRASH.value
-            elif self.obstacles[x, y] == self.OBSTACLE_SOFT:
+            elif self.obstacles[x, y] == OBJECT_ENCODING.OBSTACLE_SOFT:
                 return REWARDS.SOFT_OBSTACLE.value
-            elif self.obstacles[x, y] == self.OBSTACLE_HARD:
+            elif self.obstacles[x, y] == OBJECT_ENCODING.OBSTACLE_HARD:
                 return REWARDS.HARD_OBSTACLE.value
         elif (x, y) == self.goal_xy:
             return REWARDS.TARGET.value
         elif not all(self.compute_distance((x, y), other_agent['position']) <= self.env_configurations["tetherDist"] for other_agent in self.agents):
+            # Increment tether count BEFORE rewards
+            self.OUT_OF_TETHER_COUNT += 1
             return REWARDS.OUT_OF_TETHER.value * out_of_tether_count
         else:
-            # if stay
-            rewards: int = 0
             if (x, y) == self.agent_xy:
-                rewards += REWARDS.STAY.value
-            # step
-            rewards += REWARDS.STEP.value
-            return rewards
+                # Stay
+                return REWARDS.STAY.value
+            else:
+                # Moving to a new position
+                return REWARDS.STEP.value
         return 0.0  # Ensure a float value is always returned
 
     def get_obs(self) -> dict:
@@ -668,11 +662,11 @@ class SimpleGridEnv(Env):
         print(f"Agents: {self.agents}")
         for agent in self.agents:
             x, y = agent['position']
-            if data[x, y] == self.FREE:  # Only set if it's a free cell
-                data[x, y] = self.AGENT  # Mark agent starting positions in red
+            if data[x, y] == OBJECT_ENCODING.FREE:  # Only set if it's a free cell
+                data[x, y] = OBJECT_ENCODING.AGENT  # Mark agent starting positions in red
         for target in self.targets:
             x, y = target
-            data[x, y] = self.TARGET  # Mark target positions in green
+            data[x, y] = OBJECT_ENCODING.TARGET  # Mark target positions in green
 
         colors = ['white', 'lightgray', 'black', 'red', 'green']
         bounds = [i-0.1 for i in range(6)]

@@ -6,11 +6,7 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Define environment constants
-FREE: int = 0
-OBSTACLE_SOFT: int = 1
-OBSTACLE_HARD: int = 2
-AGENT: int = 3
-TARGET: int = 4
+from constants import OBJECT_ENCODING
 
 def generate_map(rowSize: int, colSize: int, num_soft_obstacles: int, num_hard_obstacles: int, num_robots: int, tetherDist: int, num_leaders: int = 1, num_target: int = 1):
     # Initialize the map with free cells
@@ -25,16 +21,16 @@ def generate_map(rowSize: int, colSize: int, num_soft_obstacles: int, num_hard_o
     for _ in range(num_soft_obstacles):
         while True:
             x, y = random.randint(0, rowSize-1), random.randint(0, colSize-1)
-            if grid[x, y] == FREE:
-                grid[x, y] = OBSTACLE_SOFT
+            if grid[x, y] == OBJECT_ENCODING.FREE:
+                grid[x, y] = OBJECT_ENCODING.OBSTACLE_SOFT
                 break
 
     # Place hard obstacles randomly
     for _ in range(num_hard_obstacles):
         while True:
             x, y = random.randint(0, rowSize-1), random.randint(0, colSize-1)
-            if grid[x, y] == FREE:
-                grid[x, y] = OBSTACLE_HARD
+            if grid[x, y] == OBJECT_ENCODING.FREE:
+                grid[x, y] = OBJECT_ENCODING.OBSTACLE_HARD
                 break
 
     # Place robots randomly with roles
@@ -43,9 +39,9 @@ def generate_map(rowSize: int, colSize: int, num_soft_obstacles: int, num_hard_o
     for i in range(num_robots):
         while True:
             x, y = random.randint(0, rowSize-1), random.randint(0, colSize-1)
-            if grid[x, y] == FREE:
+            if grid[x, y] == OBJECT_ENCODING.FREE:
                 if i == 0 or all(max(abs(x - robot['position'][0]), abs(y - robot['position'][1])) <= tetherDist for robot in robots):
-                    grid[x, y] = AGENT
+                    grid[x, y] = OBJECT_ENCODING.AGENT
                     robots.append({
                         'position': (x, y), 
                         'role': roles[0 if i<num_leaders else 1]
@@ -57,8 +53,8 @@ def generate_map(rowSize: int, colSize: int, num_soft_obstacles: int, num_hard_o
     for i in range(num_target):
         while True:
             x, y = random.randint(0, rowSize-1), random.randint(0, colSize-1)
-            if grid[x, y] == FREE:
-                grid[x, y] = TARGET
+            if grid[x, y] == OBJECT_ENCODING.FREE:
+                grid[x, y] = OBJECT_ENCODING.TARGET
                 targets.append((x, y))
                 break
 
